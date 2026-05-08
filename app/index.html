@@ -140,11 +140,13 @@
 
       <div class="section-header">
         <span class="spec-label">PAST JSAs</span>
+        <span id="past-jsas-count" class="font-mono past-count" hidden></span>
       </div>
 
-      <div id="past-jsas-list" class="empty-state">
-        <p class="empty-text">No JSAs yet. Your submitted JSAs will appear here.</p>
-        <p class="empty-sub font-mono">COMING IN SESSION 3 · PERSISTENT STORAGE</p>
+      <div id="past-jsas-list" class="past-jsas-list">
+        <div class="empty-state">
+          <p class="empty-text">Loading past JSAs...</p>
+        </div>
       </div>
     </section>
 
@@ -337,9 +339,24 @@
           <span class="btn-label">Submit JSA</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <p class="submit-note font-mono">SUBMIT WIRES UP IN SESSION 3 · WORKS UI-ONLY FOR NOW</p>
+        <p class="submit-note font-mono">RECORDS ARE TAMPER-EVIDENT · TIMESTAMPED ON SUBMISSION</p>
       </div>
 
+    </section>
+
+    <!-- JSA DETAIL VIEW -->
+    <section id="view-jsa-detail" class="view" hidden>
+      <div class="view-intro">
+        <p class="spec-label" id="detail-status-label">SUBMITTED JSA</p>
+        <h1 class="view-title" id="detail-job-title">—</h1>
+        <p class="view-sub" id="detail-location">—</p>
+      </div>
+
+      <div id="detail-content" class="detail-content"></div>
+
+      <div class="detail-footer">
+        <p class="font-mono detail-footer-text">PDF EXPORT WIRES UP IN SESSION 5</p>
+      </div>
     </section>
 
   </main>
