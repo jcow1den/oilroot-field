@@ -135,14 +135,14 @@ const FLOWBACK_TEMPLATE = {
     { text: "Communication plan (radio, hand signals) confirmed",         type: "admin" }
   ],
   ppe: [
-    "Hard hat",
-    "Safety glasses (impact-rated)",
-    "FR coveralls or FR layered clothing",
-    "Steel-toe boots (lace-up, ANSI-rated)",
-    "Cut-resistant / impact gloves",
-    "Hearing protection (within 50 ft of flow iron)",
-    "Personal 4-gas monitor (O2, LEL, H2S, CO)",
-    "H2S escape pack / SCBA available on site"
+    { text: "Hard hat", core: true },
+    { text: "Safety glasses (impact-rated)", core: true },
+    { text: "FR coveralls or FR layered clothing", core: true },
+    { text: "Steel-toe boots (lace-up, ANSI-rated)", core: true },
+    { text: "Cut-resistant / impact gloves", core: true },
+    { text: "Hearing protection (within 50 ft of flow iron)", core: false },
+    { text: "Personal 4-gas monitor (O2, LEL, H2S, CO)", core: true },
+    { text: "H2S escape pack / SCBA available on site", core: false }
   ],
   routineSteps: [
     {
@@ -348,6 +348,12 @@ const revisionReasonSection = document.getElementById("revision-reason-section")
 const revisionReasonInput   = document.getElementById("revision-reason");
 const hospitalStatus        = document.getElementById("hospital-status");
 const editJsaBtn            = document.getElementById("edit-jsa-btn");
+const interviewDifferent    = document.getElementById("interview-different");
+const ppeOverrideModal      = document.getElementById("ppe-override-modal");
+const ppeOverrideTitle      = document.getElementById("ppe-override-title");
+const ppeOverrideReason     = document.getElementById("ppe-override-reason");
+const ppeOverrideCancel     = document.getElementById("ppe-override-cancel");
+const ppeOverrideConfirm    = document.getElementById("ppe-override-confirm");
 
 const pastJsasList   = document.getElementById("past-jsas-list");
 const pastJsasCount  = document.getElementById("past-jsas-count");
@@ -371,6 +377,19 @@ let editMode        = false;     // Are we editing an existing JSA?
 let editingDocId    = null;      // Doc ID of the JSA being edited
 let editingOriginal = null;      // Original data of the JSA being edited (for revision history)
 let detailDocId     = null;      // Currently-viewed JSA in the detail view
+
+// Interview question answers
+let interviewAnswers = {
+  h2s: null,           // "known" | "suspected" | "none"
+  newcrew: null,       // "yes" | "no"
+  weather: [],         // array of "cold" | "heat" | "wind" | "lightning" | "none"
+  different: ""        // free text
+};
+
+// PPE & controls checkbox state.
+// Maps item index to {checked: bool, overrideReason: string|null}
+let ppeState = {};      // {0: {checked: true, overrideReason: null}, ...}
+let controlsState = {}; // same shape
 
 // ============== VIEW NAVIGATION ==============
 let viewStack = ["home"];
@@ -505,16 +524,70 @@ function populateStandardLists(template) {
     hazardsList.appendChild(li);
   });
 
-  // Render controls (always visible) with hierarchy tags
-  controlsList.innerHTML = template.controls
-    .map(c => {
-      const tag = c.type === "eng" ? "ENGINEERING" : c.type === "admin" ? "ADMIN" : "PPE";
-      return `<li>${escapeHtml(c.text)}<span class="hierarchy-tag">${tag}</span></li>`;
-    })
-    .join("");
+  // Render controls as checkboxes (all start checked)
+  controlsList.className = "checkbox-list";
+  controlsList.innerHTML = "";
+  template.controls.forEach((c, idx) => {
+    if (!(idx in controlsState)) {
+      controlsState[idx] = { checked: true, overrideReason: null };
+    }
+    const tag = c.type === "eng" ? "ENGINEERING" : c.type === "admin" ? "ADMIN" : "PPE";
+    const li = document.createElement("li");
+    li.className = "checkbox-item" + (controlsState[idx].checked ? "" : " unchecked");
+    li.innerHTML = `
+      <input type="checkbox" ${controlsState[idx].checked ? "checked" : ""} />
+      <span class="checkbox-item-text">${escapeHtml(c.text)}<span class="hierarchy-tag">${tag}</span></span>
+    `;
+    const cb = li.querySelector("input");
+    cb.addEventListener("change", () => {
+      controlsState[idx].checked = cb.checked;
+      li.classList.toggle("unchecked", !cb.checked);
+    });
+    controlsList.appendChild(li);
+  });
 
-  // Render PPE (always visible)
-  ppeList.innerHTML = template.ppe.map(p => `<li>${escapeHtml(p)}</li>`).join("");
+  // Render PPE as checkboxes. Core items show a soft floor: unchecking
+  // them prompts for a justification reason.
+  ppeList.className = "checkbox-list";
+  ppeList.innerHTML = "";
+  template.ppe.forEach((p, idx) => {
+    if (!(idx in ppeState)) {
+      ppeState[idx] = { checked: true, overrideReason: null };
+    }
+    const isCore = !!p.core;
+    const li = document.createElement("li");
+    li.className = "checkbox-item" + (isCore ? " core-required" : "") + (ppeState[idx].checked ? "" : " unchecked");
+    li.innerHTML = `
+      <input type="checkbox" ${ppeState[idx].checked ? "checked" : ""} />
+      <span class="checkbox-item-text">${escapeHtml(p.text)}${isCore ? '<span class="core-required-tag">CORE</span>' : ''}</span>
+    `;
+    const cb = li.querySelector("input");
+    cb.addEventListener("change", () => {
+      if (!cb.checked && isCore && !ppeState[idx].overrideReason) {
+        // Open the soft-floor override modal
+        cb.checked = true; // revert until they confirm
+        openPpeOverrideModal(idx, p.text, () => {
+          ppeState[idx].checked = false;
+          cb.checked = false;
+          li.classList.add("unchecked");
+          renderOverrideReasonOnItem(li, ppeState[idx].overrideReason);
+        });
+        return;
+      }
+      ppeState[idx].checked = cb.checked;
+      li.classList.toggle("unchecked", !cb.checked);
+      // If re-checking a core item, clear any override reason
+      if (cb.checked && ppeState[idx].overrideReason) {
+        ppeState[idx].overrideReason = null;
+        const r = li.querySelector(".override-reason-display");
+        if (r) r.remove();
+      }
+    });
+    if (ppeState[idx].overrideReason) {
+      renderOverrideReasonOnItem(li, ppeState[idx].overrideReason);
+    }
+    ppeList.appendChild(li);
+  });
 
   // Render routine steps (always visible)
   if (routineStepsList) {
@@ -544,6 +617,57 @@ function populateStandardLists(template) {
   }
 }
 
+// Render the override reason inside the checkbox item
+function renderOverrideReasonOnItem(li, reason) {
+  const existing = li.querySelector(".override-reason-display");
+  if (existing) existing.remove();
+  if (!reason) return;
+  const div = document.createElement("div");
+  div.className = "override-reason-display";
+  div.textContent = `Override reason: ${reason}`;
+  li.appendChild(div);
+}
+
+// ============== PPE OVERRIDE MODAL ==============
+let pendingOverrideIdx = null;
+let pendingOverrideOnConfirm = null;
+
+function openPpeOverrideModal(idx, itemText, onConfirm) {
+  pendingOverrideIdx = idx;
+  pendingOverrideOnConfirm = onConfirm;
+  ppeOverrideTitle.textContent = `${itemText} is required for flowback work`;
+  ppeOverrideReason.value = "";
+  ppeOverrideModal.hidden = false;
+  setTimeout(() => ppeOverrideReason.focus(), 50);
+}
+
+function closePpeOverrideModal() {
+  ppeOverrideModal.hidden = true;
+  pendingOverrideIdx = null;
+  pendingOverrideOnConfirm = null;
+}
+
+if (ppeOverrideCancel) {
+  ppeOverrideCancel.addEventListener("click", closePpeOverrideModal);
+}
+
+if (ppeOverrideConfirm) {
+  ppeOverrideConfirm.addEventListener("click", () => {
+    const reason = ppeOverrideReason.value.trim();
+    if (!reason) {
+      ppeOverrideReason.focus();
+      return;
+    }
+    if (pendingOverrideIdx !== null) {
+      ppeState[pendingOverrideIdx].overrideReason = reason;
+    }
+    if (pendingOverrideOnConfirm) {
+      pendingOverrideOnConfirm();
+    }
+    closePpeOverrideModal();
+  });
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, m => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;"
@@ -554,6 +678,45 @@ function escapeHtml(s) {
 if (factShuffleBtn) {
   factShuffleBtn.addEventListener("click", () => {
     factText.textContent = pickRandomFact();
+  });
+}
+
+// Interview question chip handlers (single-select and multi-select)
+document.querySelectorAll(".interview-options").forEach(group => {
+  const isMulti = group.classList.contains("interview-multi");
+  const question = group.dataset.question;
+  group.querySelectorAll(".interview-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      const value = chip.dataset.value;
+      if (isMulti) {
+        // Toggle the chip
+        chip.classList.toggle("selected");
+        // "None" is exclusive: tapping it deselects others, and tapping others deselects "None"
+        if (value === "none" && chip.classList.contains("selected")) {
+          group.querySelectorAll(".interview-chip").forEach(c => {
+            if (c !== chip) c.classList.remove("selected");
+          });
+        } else if (value !== "none") {
+          const noneChip = group.querySelector('[data-value="none"]');
+          if (noneChip) noneChip.classList.remove("selected");
+        }
+        // Update state
+        const selected = [...group.querySelectorAll(".interview-chip.selected")].map(c => c.dataset.value);
+        interviewAnswers[question] = selected;
+      } else {
+        // Single select
+        group.querySelectorAll(".interview-chip").forEach(c => c.classList.remove("selected"));
+        chip.classList.add("selected");
+        interviewAnswers[question] = value;
+      }
+    });
+  });
+});
+
+// Free-text interview answer
+if (interviewDifferent) {
+  interviewDifferent.addEventListener("input", () => {
+    interviewAnswers.different = interviewDifferent.value;
   });
 }
 
@@ -1044,6 +1207,27 @@ submitJsaBtn.addEventListener("click", async () => {
     jsaLocation.focus();
     return;
   }
+  const muster = jsaMuster.value.trim();
+  if (!muster) {
+    showToast("Muster point is required", "error");
+    jsaMuster.focus();
+    return;
+  }
+  if (!interviewAnswers.h2s) {
+    showToast("Answer the H2S question in Today's conditions", "error");
+    document.getElementById("conditions-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (!interviewAnswers.newcrew) {
+    showToast("Answer the new crew question in Today's conditions", "error");
+    document.getElementById("conditions-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (!Array.isArray(interviewAnswers.weather) || interviewAnswers.weather.length === 0) {
+    showToast("Answer the weather question in Today's conditions", "error");
+    document.getElementById("conditions-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
   if (!isStandardConfirmed && !exceptionFlagged) {
     showToast("Confirm standard items, or flag an exception, before submitting", "error");
     return;
@@ -1155,6 +1339,9 @@ function snapshotPriorState(data) {
     standardConfirmedAt:  data.standardConfirmedAt,
     exceptionFlagged:     data.exceptionFlagged,
     exceptionText:        data.exceptionText,
+    conditions:           data.conditions || null,
+    controlsState:        data.controlsState || null,
+    ppeState:             data.ppeState || null,
     todayDifferent:       data.todayDifferent,
     stopWork:             data.stopWork,
     routineTaskAcknowledged: data.routineTaskAcknowledged,
@@ -1199,6 +1386,19 @@ function buildJsaRecord({ location }) {
     exceptionText:       exceptionFlagged ? exceptionText.value.trim() : "",
     templateSnapshot:    templateSnapshot,
 
+    // Today's conditions (interview answers)
+    conditions: {
+      h2s:       interviewAnswers.h2s,
+      newCrew:   interviewAnswers.newcrew,
+      weather:   interviewAnswers.weather,
+      different: interviewAnswers.different || ""
+    },
+
+    // Per-item state for controls and PPE: which items the user confirmed
+    // applicable, and any override reasons for unchecked core PPE.
+    controlsState: { ...controlsState },
+    ppeState:      { ...ppeState },
+
     // Today's specifics
     todayDifferent: jsaTodayDifferent.value.trim(),
     stopWork:       jsaStopWork.value.trim(),
@@ -1211,7 +1411,7 @@ function buildJsaRecord({ location }) {
     createdAt:      serverTimestamp(),
     submittedAt:    serverTimestamp(),
     revisionCount:  0,
-    schemaVersion:  1
+    schemaVersion:  2
   };
 }
 
@@ -1369,7 +1569,39 @@ function openJsaForEdit(docId, data) {
   submitJsaBtn.querySelector(".btn-label").textContent = "Save revision";
   submitNote.textContent = "PRIOR STATE PRESERVED · ALL REVISIONS TIMESTAMPED";
 
+  // Restore controls/PPE state BEFORE populateStandardLists so the rendered
+  // checkboxes reflect the saved state from the prior submission
+  if (data.controlsState && typeof data.controlsState === "object") {
+    controlsState = { ...data.controlsState };
+  }
+  if (data.ppeState && typeof data.ppeState === "object") {
+    ppeState = { ...data.ppeState };
+  }
+
   if (currentTemplate) populateStandardLists(currentTemplate);
+
+  // Restore interview answers
+  if (data.conditions) {
+    interviewAnswers.h2s = data.conditions.h2s || null;
+    interviewAnswers.newcrew = data.conditions.newCrew || null;
+    interviewAnswers.weather = Array.isArray(data.conditions.weather) ? [...data.conditions.weather] : [];
+    interviewAnswers.different = data.conditions.different || "";
+
+    // Reflect in UI
+    document.querySelectorAll(".interview-options").forEach(group => {
+      const q = group.dataset.question;
+      const isMulti = group.classList.contains("interview-multi");
+      group.querySelectorAll(".interview-chip").forEach(chip => {
+        const v = chip.dataset.value;
+        if (isMulti) {
+          if (interviewAnswers[q] && interviewAnswers[q].includes(v)) chip.classList.add("selected");
+        } else {
+          if (interviewAnswers[q] === v) chip.classList.add("selected");
+        }
+      });
+    });
+    if (interviewDifferent) interviewDifferent.value = interviewAnswers.different;
+  }
 
   // Pre-populate fields from existing data
   jsaLocation.value         = data.location || "";
@@ -1471,6 +1703,47 @@ function renderDetailView(data) {
     </div>
   `);
 
+  // Section: Today's conditions (interview answers)
+  if (data.conditions) {
+    const c = data.conditions;
+    const h2sLabel = c.h2s === "known" ? "Known present"
+                    : c.h2s === "suspected" ? "Suspected"
+                    : c.h2s === "none" ? "Not present"
+                    : "—";
+    const newCrewLabel = c.newCrew === "yes" ? "Yes"
+                       : c.newCrew === "no" ? "No"
+                       : "—";
+    const weatherLabel = Array.isArray(c.weather) && c.weather.length
+      ? c.weather.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(", ")
+      : "—";
+    sections.push(`
+      <div class="detail-section">
+        <div class="detail-section-head">
+          <span class="detail-section-num">§ 00</span>
+          <h3 class="detail-section-title">Today's conditions</h3>
+        </div>
+        <div class="detail-row">
+          <span class="spec-label">H2S potential</span>
+          <span class="detail-value">${escapeHtml(h2sLabel)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="spec-label">New crew member on location</span>
+          <span class="detail-value">${escapeHtml(newCrewLabel)}</span>
+        </div>
+        <div class="detail-row">
+          <span class="spec-label">Weather concerns</span>
+          <span class="detail-value">${escapeHtml(weatherLabel)}</span>
+        </div>
+        ${c.different ? `
+        <div class="detail-row">
+          <span class="spec-label">Different from last shift</span>
+          <span class="detail-value">${escapeHtml(c.different)}</span>
+        </div>
+        ` : ""}
+      </div>
+    `);
+  }
+
   // Section 02: Standard items
   const tpl = data.templateSnapshot;
   const confirmedAtLabel = data.standardConfirmedAt
@@ -1514,24 +1787,42 @@ function renderDetailView(data) {
     `;
   }
   if (tpl && tpl.controls) {
+    const cState = data.controlsState || {};
     standardSection += `
       <div class="detail-row">
         <span class="spec-label">Controls (${tpl.controls.length})</span>
         <ul class="standard-list">
-          ${tpl.controls.map(c => {
+          ${tpl.controls.map((c, idx) => {
             const tag = c.type === "eng" ? "ENGINEERING" : c.type === "admin" ? "ADMIN" : "PPE";
-            return `<li>${escapeHtml(c.text)}<span class="hierarchy-tag">${tag}</span></li>`;
+            const stateForItem = cState[idx];
+            const checked = stateForItem ? stateForItem.checked !== false : true;
+            const status = checked ? "✓" : "—";
+            const lineClass = checked ? "" : ' style="opacity:0.5;text-decoration:line-through"';
+            return `<li${lineClass}>${status} ${escapeHtml(c.text)}<span class="hierarchy-tag">${tag}</span></li>`;
           }).join("")}
         </ul>
       </div>
     `;
   }
   if (tpl && tpl.ppe) {
+    const pState = data.ppeState || {};
     standardSection += `
       <div class="detail-row">
         <span class="spec-label">PPE (${tpl.ppe.length})</span>
         <ul class="standard-list">
-          ${tpl.ppe.map(p => `<li>${escapeHtml(p)}</li>`).join("")}
+          ${tpl.ppe.map((p, idx) => {
+            const text = typeof p === "string" ? p : (p.text || "");
+            const isCore = typeof p === "object" && p.core;
+            const stateForItem = pState[idx];
+            const checked = stateForItem ? stateForItem.checked !== false : true;
+            const status = checked ? "✓" : "—";
+            const lineClass = checked ? "" : ' style="opacity:0.5;text-decoration:line-through"';
+            const reason = stateForItem && stateForItem.overrideReason
+              ? `<div style="font-size:11px;color:var(--amber);margin-top:4px;font-style:italic">Override: ${escapeHtml(stateForItem.overrideReason)}</div>`
+              : '';
+            const coreTag = isCore ? '<span class="core-required-tag">CORE</span>' : '';
+            return `<li${lineClass}>${status} ${escapeHtml(text)}${coreTag}${reason}</li>`;
+          }).join("")}
         </ul>
       </div>
     `;
@@ -1712,6 +2003,19 @@ function resetJsaForm() {
   }
   hospitalAutoSet = false;
   if (revisionReasonInput) revisionReasonInput.value = "";
+
+  // Reset interview answers
+  interviewAnswers = {
+    h2s: null,
+    newcrew: null,
+    weather: [],
+    different: ""
+  };
+  document.querySelectorAll(".interview-chip.selected").forEach(c => c.classList.remove("selected"));
+
+  // Reset PPE/controls state (will be re-initialized by populateStandardLists)
+  ppeState = {};
+  controlsState = {};
 }
 
 // ============== TOAST ==============
