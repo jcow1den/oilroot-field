@@ -578,82 +578,117 @@ exceptionBtn.addEventListener("click", () => {
 let capturedGps = null;
 
 captureGpsBtn.addEventListener("click", () => {
-  if (!navigator.geolocation) {
-    showToast("GPS not available on this device", "error");
-    return;
-  }
-
-  captureGpsBtn.disabled = true;
-  captureGpsBtn.textContent = "Capturing...";
-
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      capturedGps = { lat, lng, accuracy: pos.coords.accuracy, capturedAt: new Date().toISOString() };
-      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}° ${formatAccuracy(pos.coords.accuracy)}`;
-      jsaGpsEl.classList.add("captured");
-      captureGpsBtn.textContent = "Recapture";
-      captureGpsBtn.disabled = false;
-      // Trigger hospital lookup
-      lookupNearestHospital(lat, lng);
-    },
-    (err) => {
-      let msg = "GPS unavailable";
-      if (err.code === 1) msg = "GPS permission denied";
-      if (err.code === 3) msg = "GPS timed out";
-      showToast(msg, "error");
-      captureGpsBtn.textContent = "Capture GPS";
-      captureGpsBtn.disabled = false;
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 0
-    }
-  );
+  // Reset and run the multi-source auto-capture
+  capturedGps = null;
+  jsaGpsEl.textContent = "Capturing...";
+  jsaGpsEl.classList.remove("captured");
+  autoCaptureGps();
 });
 
-// Auto-capture GPS silently when the form opens. If permission is denied or
-// fails, the manual button stays as fallback.
+// Auto-capture GPS when the form opens. Uses two sources in parallel:
+// 1. Browser geolocation (great on phones, often wildly off on laptops)
+// 2. iplocate.io network-based lookup (better than browser fallback for cell hotspots)
+// Whichever returns the more accurate result wins. If both fail, the manual
+// button stays available.
+const IPLOCATE_API_KEY = "6186e45569220b16fb537bd3056600eb";
+
 function autoCaptureGps() {
-  if (!navigator.geolocation) return;
   if (capturedGps) return; // Already captured (e.g. in edit mode)
 
   captureGpsBtn.disabled = true;
   captureGpsBtn.textContent = "Capturing...";
 
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      capturedGps = { lat, lng, accuracy: pos.coords.accuracy, capturedAt: new Date().toISOString() };
-      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}° ${formatAccuracy(pos.coords.accuracy)}`;
-      jsaGpsEl.classList.add("captured");
-      captureGpsBtn.textContent = "Recapture";
-      captureGpsBtn.disabled = false;
-      lookupNearestHospital(lat, lng);
-    },
-    (err) => {
-      // Quiet failure for auto-capture; user can still tap the button
+  // Fire both location sources in parallel
+  const browserPromise = getBrowserLocation();
+  const iplocatePromise = getIplocateLocation();
+
+  Promise.allSettled([browserPromise, iplocatePromise]).then(results => {
+    const candidates = [];
+    results.forEach((r, idx) => {
+      if (r.status === "fulfilled" && r.value) {
+        candidates.push({ ...r.value, source: idx === 0 ? "browser" : "iplocate" });
+      }
+    });
+
+    if (!candidates.length) {
       captureGpsBtn.textContent = "Capture GPS";
       captureGpsBtn.disabled = false;
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 20000,    // 20s gives the GPS chip time to lock
-      maximumAge: 0      // Never accept a cached fix
+      return;
     }
-  );
+
+    // Pick the most accurate result (smallest accuracy radius)
+    candidates.sort((a, b) => (a.accuracy || Infinity) - (b.accuracy || Infinity));
+    const best = candidates[0];
+
+    capturedGps = {
+      lat: best.lat,
+      lng: best.lng,
+      accuracy: best.accuracy,
+      source: best.source,
+      capturedAt: new Date().toISOString()
+    };
+
+    jsaGpsEl.textContent = `${best.lat.toFixed(5)}°, ${best.lng.toFixed(5)}° ${formatAccuracy(best.accuracy, best.source)}`;
+    jsaGpsEl.classList.add("captured");
+    captureGpsBtn.textContent = "Recapture";
+    captureGpsBtn.disabled = false;
+    lookupNearestHospital(best.lat, best.lng);
+  });
 }
 
-// Format GPS accuracy: feet for under 0.5 mi, miles for wider
-function formatAccuracy(accuracyMeters) {
+// Browser geolocation as a Promise. Resolves with {lat, lng, accuracy} or null on failure.
+function getBrowserLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy
+      }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  });
+}
+
+// iplocate.io network-based location. Resolves with {lat, lng, accuracy} or null.
+// Free tier allows commercial use; 1,000 lookups/day.
+async function getIplocateLocation() {
+  try {
+    const resp = await fetch(`https://iplocate.io/api/lookup/?apikey=${IPLOCATE_API_KEY}`, {
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (typeof data.latitude !== "number" || typeof data.longitude !== "number") return null;
+    // iplocate doesn't return an accuracy radius. Network/IP-based lookups are
+    // typically accurate to city level; estimate 5 mi (~8000 m) as a baseline.
+    // This lets the comparison logic prefer high-precision browser GPS when
+    // available, and prefer iplocate when browser falls back to a wider IP fix.
+    return {
+      lat: data.latitude,
+      lng: data.longitude,
+      accuracy: 8000
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Format GPS accuracy for display. Uses feet for tight fixes, miles for wide.
+// Adds a source label so the user knows where the location came from.
+function formatAccuracy(accuracyMeters, source) {
   if (!accuracyMeters || accuracyMeters <= 0) return "";
   const accFt = accuracyMeters * 3.281;
   const accMi = accuracyMeters * 0.000621371;
+  const sourceLabel = source === "iplocate" ? " · network estimate"
+                    : (accMi >= 0.5 ? " · WiFi/IP estimate" : "");
   if (accMi >= 0.5) {
-    return `(±${accMi.toFixed(1)} mi · WiFi/IP estimate)`;
+    return `(±${accMi.toFixed(1)} mi${sourceLabel})`;
   }
   return `(±${Math.round(accFt)} ft)`;
 }
@@ -1213,7 +1248,7 @@ function openJsaForEdit(docId, data) {
   // GPS preserved from prior state
   if (data.gps) {
     capturedGps = data.gps;
-    jsaGpsEl.textContent = `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° ${formatAccuracy(data.gps.accuracy)}`;
+    jsaGpsEl.textContent = `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° ${formatAccuracy(data.gps.accuracy, data.gps.source)}`;
     jsaGpsEl.classList.add("captured");
     captureGpsBtn.textContent = "Recapture";
   }
@@ -1263,7 +1298,7 @@ function renderDetailView(data) {
     ? new Date(data.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
     : "—";
   const gpsLabel = data.gps
-    ? `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° ${formatAccuracy(data.gps.accuracy)}`
+    ? `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° ${formatAccuracy(data.gps.accuracy, data.gps.source)}`
     : "Not captured";
 
   sections.push(`
