@@ -814,14 +814,26 @@ function formatAccuracy(accuracyMeters, source) {
   return `(±${Math.round(accFt)} ft${sourceLabel})`;
 }
 
+// Tracks whether the hospital field was auto-set by our lookup (true) or
+// typed/edited by the user (false). When location improves later, we only
+// overwrite an auto-set value, never a user-edited one.
+let hospitalAutoSet = false;
+
+if (jsaHospital) {
+  jsaHospital.addEventListener("input", () => {
+    hospitalAutoSet = false;
+  });
+}
+
 // Look up nearest hospital from GPS coordinates using OpenStreetMap Overpass API.
 // Free, no API key. Tiered behavior based on GPS accuracy:
 //   - High accuracy (under 1000 ft): trust the fix, search small radius first
 //   - Medium accuracy (1000 ft - 10 mi): warn user, search wider radius
 //   - Low accuracy (over 10 mi): too unreliable to suggest, just offer search
 async function lookupNearestHospital(lat, lng) {
-  // Don't overwrite if user has already typed something
-  if (jsaHospital.value.trim()) return;
+  // Don't overwrite if user has typed/edited something. Auto-set values are
+  // safe to overwrite (e.g. when location refines to a better fix).
+  if (jsaHospital.value.trim() && !hospitalAutoSet) return;
 
   const accuracyMeters = capturedGps?.accuracy || 0;
   const accuracyMiles = accuracyMeters * 0.000621371;
@@ -859,13 +871,15 @@ async function lookupNearestHospital(lat, lng) {
       return;
     }
 
-    // Don't overwrite if user typed something while we were waiting
-    if (jsaHospital.value.trim()) {
+    // Don't overwrite if user typed something while we were waiting (and it
+    // wasn't us that auto-set it)
+    if (jsaHospital.value.trim() && !hospitalAutoSet) {
       hospitalStatus.hidden = true;
       return;
     }
 
     jsaHospital.value = result.display;
+    hospitalAutoSet = true;  // Mark as auto-set so future location updates can overwrite
 
     // Calibrate the message to GPS confidence
     if (accuracyMiles <= 0.2) {
@@ -1696,6 +1710,7 @@ function resetJsaForm() {
     hospitalStatus.hidden = true;
     hospitalStatus.textContent = "";
   }
+  hospitalAutoSet = false;
   if (revisionReasonInput) revisionReasonInput.value = "";
 }
 
