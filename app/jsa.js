@@ -22,7 +22,10 @@ import {
   getDoc,
   query,
   orderBy,
-  serverTimestamp
+  serverTimestamp,
+  updateDoc,
+  arrayUnion,
+  Timestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 // auth.js already initialized Firebase. We just grab the existing app.
@@ -167,6 +170,13 @@ const addTaskBtn        = document.getElementById("add-task-btn");
 const customTasksEl     = document.getElementById("custom-tasks");
 
 const submitJsaBtn  = document.getElementById("submit-jsa-btn");
+const submitNote    = document.getElementById("submit-note");
+const formModeLabel = document.getElementById("form-mode-label");
+const formModeSub   = document.getElementById("form-mode-sub");
+const revisionReasonSection = document.getElementById("revision-reason-section");
+const revisionReasonInput   = document.getElementById("revision-reason");
+const hospitalStatus        = document.getElementById("hospital-status");
+const editJsaBtn            = document.getElementById("edit-jsa-btn");
 
 const pastJsasList   = document.getElementById("past-jsas-list");
 const pastJsasCount  = document.getElementById("past-jsas-count");
@@ -184,6 +194,12 @@ let currentTemplate  = null;     // The template object loaded for that job
 let isStandardConfirmed = false; // Has the user tapped the confirm button?
 let standardConfirmedAt = null;  // Timestamp when they tapped it
 let exceptionFlagged = false;    // Has the user opened the exception path?
+
+// Edit mode tracking
+let editMode        = false;     // Are we editing an existing JSA?
+let editingDocId    = null;      // Doc ID of the JSA being edited
+let editingOriginal = null;      // Original data of the JSA being edited (for revision history)
+let detailDocId     = null;      // Currently-viewed JSA in the detail view
 
 // ============== VIEW NAVIGATION ==============
 let viewStack = ["home"];
@@ -257,6 +273,16 @@ function openJsaForm(job) {
 
   jsaJobTitle.textContent = job.name;
 
+  // Reset edit mode (this is a fresh new JSA)
+  editMode = false;
+  editingDocId = null;
+  editingOriginal = null;
+  revisionReasonSection.hidden = true;
+  formModeLabel.textContent = "NEW JSA · STEP 2 OF 2";
+  formModeSub.textContent = "Pre-job hazard analysis. Smart defaults pre-loaded. Spend your attention on what's specific to today.";
+  submitJsaBtn.querySelector(".btn-label").textContent = "Submit JSA";
+  submitNote.textContent = "RECORDS ARE TAMPER-EVIDENT · TIMESTAMPED ON SUBMISSION";
+
   resetJsaForm();
 
   if (currentTemplate) {
@@ -270,6 +296,9 @@ function openJsaForm(job) {
   jsaTimeInput.value = `${hh}:${mm}`;
 
   navigateTo("jsa-form");
+
+  // Auto-capture GPS in the background after view transition
+  setTimeout(autoCaptureGps, 500);
 }
 
 function populateStandardLists(template) {
@@ -347,6 +376,8 @@ captureGpsBtn.addEventListener("click", () => {
       jsaGpsEl.classList.add("captured");
       captureGpsBtn.textContent = "Recapture";
       captureGpsBtn.disabled = false;
+      // Trigger hospital lookup
+      lookupNearestHospital(lat, lng);
     },
     (err) => {
       let msg = "GPS unavailable";
@@ -359,6 +390,123 @@ captureGpsBtn.addEventListener("click", () => {
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 });
+
+// Auto-capture GPS silently when the form opens. If permission is denied or
+// fails, the manual button stays as fallback.
+function autoCaptureGps() {
+  if (!navigator.geolocation) return;
+  if (capturedGps) return; // Already captured (e.g. in edit mode)
+
+  captureGpsBtn.disabled = true;
+  captureGpsBtn.textContent = "Capturing...";
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      capturedGps = { lat, lng, accuracy: pos.coords.accuracy, capturedAt: new Date().toISOString() };
+      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`;
+      jsaGpsEl.classList.add("captured");
+      captureGpsBtn.textContent = "Recapture";
+      captureGpsBtn.disabled = false;
+      lookupNearestHospital(lat, lng);
+    },
+    (err) => {
+      // Quiet failure for auto-capture; user can still tap the button
+      captureGpsBtn.textContent = "Capture GPS";
+      captureGpsBtn.disabled = false;
+      if (err.code === 1) {
+        // Permission denied; do nothing
+      }
+    },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+  );
+}
+
+// Look up nearest hospital from GPS coordinates using OpenStreetMap Overpass API.
+// Free, no API key. Search radius starts at 10km and expands to 50km if nothing found.
+async function lookupNearestHospital(lat, lng) {
+  // Don't overwrite if user has already typed something
+  if (jsaHospital.value.trim()) return;
+
+  hospitalStatus.hidden = false;
+  hospitalStatus.textContent = "Finding nearest hospital...";
+
+  try {
+    const result = await queryOverpassForHospital(lat, lng, 10000)
+      || await queryOverpassForHospital(lat, lng, 50000);
+
+    if (!result) {
+      hospitalStatus.textContent = "No hospital found nearby. Type one in.";
+      return;
+    }
+
+    // Don't overwrite if user typed something while we were waiting
+    if (jsaHospital.value.trim()) {
+      hospitalStatus.hidden = true;
+      return;
+    }
+
+    jsaHospital.value = result.display;
+    hospitalStatus.textContent = `Auto-suggested · ${result.distanceKm.toFixed(1)} km away. Edit if wrong.`;
+  } catch (err) {
+    console.warn("Hospital lookup failed:", err);
+    hospitalStatus.textContent = "Hospital lookup unavailable. Type one in.";
+  }
+}
+
+async function queryOverpassForHospital(lat, lng, radiusMeters) {
+  const overpassQuery = `
+    [out:json][timeout:8];
+    (
+      node["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
+      way["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
+    );
+    out center 5;
+  `;
+  const url = "https://overpass-api.de/api/interpreter";
+  const resp = await fetch(url, {
+    method: "POST",
+    body: "data=" + encodeURIComponent(overpassQuery)
+  });
+  if (!resp.ok) throw new Error("Overpass API error: " + resp.status);
+  const data = await resp.json();
+  if (!data.elements || data.elements.length === 0) return null;
+
+  // Compute distance for each result, pick the closest with a name
+  const hospitalsWithDist = data.elements
+    .map(el => {
+      const elLat = el.lat ?? el.center?.lat;
+      const elLng = el.lon ?? el.center?.lon;
+      if (elLat == null || elLng == null) return null;
+      const name = el.tags?.name;
+      if (!name) return null;
+      return {
+        name,
+        distanceKm: haversineKm(lat, lng, elLat, elLng)
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  if (!hospitalsWithDist.length) return null;
+  const closest = hospitalsWithDist[0];
+  return {
+    display: `${closest.name} (~${closest.distanceKm.toFixed(1)} km)`,
+    distanceKm: closest.distanceKm
+  };
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => d * Math.PI / 180;
+  const R = 6371; // km
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 // ============== CUSTOM TASKS ==============
 let customTaskCount = 0;
@@ -405,7 +553,7 @@ function gatherCustomTasks() {
   return tasks;
 }
 
-// ============== SUBMIT ==============
+// ============== SUBMIT (handles both create and revise) ==============
 submitJsaBtn.addEventListener("click", async () => {
   if (!currentUser) {
     showToast("You must be signed in to submit a JSA", "error");
@@ -429,7 +577,19 @@ submitJsaBtn.addEventListener("click", async () => {
     return;
   }
 
-  // Build the record
+  // Edit-mode requires a revision reason
+  if (editMode) {
+    const reason = revisionReasonInput.value.trim();
+    if (!reason) {
+      showToast("Revision reason is required", "error");
+      revisionReasonInput.focus();
+      return;
+    }
+    await saveRevision(reason);
+    return;
+  }
+
+  // New JSA: build a fresh record
   const record = buildJsaRecord({ location });
 
   submitJsaBtn.disabled = true;
@@ -439,7 +599,6 @@ submitJsaBtn.addEventListener("click", async () => {
     const colRef = collection(db, "users", currentUser.uid, "jsas");
     const docRef = await addDoc(colRef, record);
     showToast("JSA submitted and saved", "success");
-    // Reset form, return to home, refresh past list
     resetJsaForm();
     navigateTo("home");
     await loadPastJsas();
@@ -451,6 +610,80 @@ submitJsaBtn.addEventListener("click", async () => {
     submitJsaBtn.querySelector(".btn-label").textContent = "Submit JSA";
   }
 });
+
+// Save a revision to an existing JSA. Original record is updated with the new
+// field values, and a snapshot of the prior state is appended to the
+// `revisions` array. Nothing is overwritten without a preserved copy.
+async function saveRevision(reason) {
+  submitJsaBtn.disabled = true;
+  submitJsaBtn.querySelector(".btn-label").textContent = "Saving revision...";
+
+  try {
+    // Build the new field values from the form
+    const newValues = buildJsaRecord({ location: jsaLocation.value.trim() });
+
+    // Strip the fields we don't want to overwrite (audit trail stays put)
+    delete newValues.createdAt;     // Original creation time stays
+    delete newValues.submittedAt;   // Original submission time stays
+    delete newValues.revisionCount; // We'll set explicitly below
+
+    // Build the snapshot of the prior state to append to revisions[]
+    const priorSnapshot = snapshotPriorState(editingOriginal);
+
+    // The revision record itself
+    const revision = {
+      revisedAt:        Timestamp.now(),
+      revisedByUid:     currentUser.uid,
+      revisedByEmail:   currentUser.email,
+      revisedByName:    currentUser.displayName || "",
+      reason:           reason,
+      priorState:       priorSnapshot
+    };
+
+    const newRevisionCount = (editingOriginal.revisionCount || 0) + 1;
+
+    const docRef = doc(db, "users", currentUser.uid, "jsas", editingDocId);
+    await updateDoc(docRef, {
+      ...newValues,
+      revisionCount: newRevisionCount,
+      revisions: arrayUnion(revision)
+    });
+
+    showToast("Revision saved · audit trail updated", "success");
+    resetJsaForm();
+    // Reload detail view with the updated data
+    await openJsaDetail(editingDocId);
+    await loadPastJsas();
+  } catch (err) {
+    console.error("Revision save error:", err);
+    showToast("Could not save revision: " + (err.message || "unknown error"), "error");
+  } finally {
+    submitJsaBtn.disabled = false;
+    submitJsaBtn.querySelector(".btn-label").textContent = "Save revision";
+  }
+}
+
+// Capture the prior state of a JSA so it's preserved when a revision is saved.
+// We store the field values that could have changed; the immutable audit
+// trail (creation time, submitter identity) doesn't need to be duplicated.
+function snapshotPriorState(data) {
+  return {
+    location:         data.location,
+    date:             data.date,
+    shiftStart:       data.shiftStart,
+    gps:              data.gps,
+    nearestHospital:  data.nearestHospital,
+    musterPoint:      data.musterPoint,
+    standardConfirmed:    data.standardConfirmed,
+    standardConfirmedAt:  data.standardConfirmedAt,
+    exceptionFlagged:     data.exceptionFlagged,
+    exceptionText:        data.exceptionText,
+    todayDifferent:       data.todayDifferent,
+    stopWork:             data.stopWork,
+    routineTaskAcknowledged: data.routineTaskAcknowledged,
+    customTasks:          data.customTasks
+  };
+}
 
 function buildJsaRecord({ location }) {
   // Snapshot the template content as it is at submission time. This is the
@@ -593,9 +826,11 @@ function formatDateLabel(dateStr, createdAtTimestamp) {
 async function openJsaDetail(docId) {
   if (!currentUser) return;
 
+  detailDocId = docId;
   detailJobTitle.textContent = "Loading...";
   detailLocation.textContent = "";
   detailContent.innerHTML = "";
+  editJsaBtn.hidden = true;
   navigateTo("jsa-detail");
 
   try {
@@ -608,11 +843,105 @@ async function openJsaDetail(docId) {
     }
     const data = snap.data();
     renderDetailView(data);
+    editJsaBtn.hidden = false;
   } catch (err) {
     console.error("Detail load error:", err);
     detailJobTitle.textContent = "Could not load";
     detailContent.innerHTML = `<p class="empty-text">${escapeHtml(err.message || "Unknown error")}</p>`;
   }
+}
+
+// Edit button on the detail view: load the JSA into the form for revision
+editJsaBtn.addEventListener("click", async () => {
+  if (!detailDocId || !currentUser) return;
+
+  try {
+    const docRef = doc(db, "users", currentUser.uid, "jsas", detailDocId);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) {
+      showToast("This JSA no longer exists", "error");
+      return;
+    }
+    openJsaForEdit(detailDocId, snap.data());
+  } catch (err) {
+    console.error("Edit load error:", err);
+    showToast("Could not open for editing: " + (err.message || "unknown error"), "error");
+  }
+});
+
+// Open the form in edit mode, pre-populated with the existing JSA's values.
+function openJsaForEdit(docId, data) {
+  // Find the matching job type
+  const job = JOB_TYPES.find(j => j.id === data.jobTypeId) || JOB_TYPES[0];
+  currentJob = job;
+  currentTemplate = (job.id === "flowback") ? FLOWBACK_TEMPLATE : null;
+
+  jsaJobTitle.textContent = job.name;
+
+  // Set edit-mode state BEFORE resetJsaForm (which only clears fields)
+  editMode        = true;
+  editingDocId    = docId;
+  editingOriginal = data;
+
+  resetJsaForm();
+
+  // Show revision reason section, update mode label and button
+  revisionReasonSection.hidden = false;
+  formModeLabel.textContent = "EDIT JSA · REVISION";
+  formModeSub.textContent = "Update what's changed in the field. Original record is preserved as part of the audit trail.";
+  submitJsaBtn.querySelector(".btn-label").textContent = "Save revision";
+  submitNote.textContent = "PRIOR STATE PRESERVED · ALL REVISIONS TIMESTAMPED";
+
+  if (currentTemplate) populateStandardLists(currentTemplate);
+
+  // Pre-populate fields from existing data
+  jsaLocation.value         = data.location || "";
+  jsaDateInput.value        = data.date || "";
+  jsaTimeInput.value        = data.shiftStart || "";
+  jsaHospital.value         = data.nearestHospital || "";
+  jsaMuster.value           = data.musterPoint || "";
+  jsaTodayDifferent.value   = data.todayDifferent || "";
+  jsaStopWork.value         = data.stopWork || "";
+
+  // GPS preserved from prior state
+  if (data.gps) {
+    capturedGps = data.gps;
+    jsaGpsEl.textContent = `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}°`;
+    jsaGpsEl.classList.add("captured");
+    captureGpsBtn.textContent = "Recapture";
+  }
+
+  // Standard items state
+  if (data.standardConfirmed) {
+    isStandardConfirmed = true;
+    standardConfirmedAt = data.standardConfirmedAt;
+    confirmStandardBtn.classList.add("confirmed");
+    confirmStandardBtn.querySelector(".btn-confirm-label").textContent = "Confirmed for today's work";
+  }
+  if (data.exceptionFlagged) {
+    exceptionFlagged = true;
+    exceptionArea.hidden = false;
+    exceptionBtn.textContent = "Cancel exception";
+    exceptionText.value = data.exceptionText || "";
+  }
+
+  // Routine task acknowledgment
+  if (taskRoutine) taskRoutine.checked = !!data.routineTaskAcknowledged;
+
+  // Custom tasks: re-populate
+  if (Array.isArray(data.customTasks)) {
+    data.customTasks.forEach(t => {
+      addTaskBtn.click(); // Adds an empty custom task block
+      const lastTask = customTasksEl.lastElementChild;
+      if (lastTask) {
+        lastTask.querySelector(".custom-task-desc").value     = t.description || "";
+        lastTask.querySelector(".custom-task-hazards").value  = t.hazards || "";
+        lastTask.querySelector(".custom-task-controls").value = t.controls || "";
+      }
+    });
+  }
+
+  navigateTo("jsa-form");
 }
 
 function renderDetailView(data) {
@@ -799,14 +1128,15 @@ function renderDetailView(data) {
   const submittedAtLabel = data.submittedAt && data.submittedAt.toDate
     ? data.submittedAt.toDate().toLocaleString()
     : "—";
-  sections.push(`
+
+  let auditSection = `
     <div class="detail-section">
       <div class="detail-section-head">
         <span class="detail-section-num">§ 05</span>
         <h3 class="detail-section-title">Audit trail</h3>
       </div>
       <div class="detail-row">
-        <span class="spec-label">Submitted</span>
+        <span class="spec-label">Originally submitted</span>
         <span class="detail-value mono">${escapeHtml(submittedAtLabel)}</span>
       </div>
       <div class="detail-row">
@@ -821,8 +1151,51 @@ function renderDetailView(data) {
         <span class="spec-label">Revisions</span>
         <span class="detail-value mono">${data.revisionCount || 0}</span>
       </div>
-    </div>
-  `);
+  `;
+
+  // Revision history
+  if (Array.isArray(data.revisions) && data.revisions.length) {
+    auditSection += `
+      <div class="detail-row">
+        <span class="spec-label">Revision history (newest first)</span>
+        <ul class="revision-list">
+    `;
+    // Newest first
+    const sortedRevisions = [...data.revisions].sort((a, b) => {
+      const at = a.revisedAt && a.revisedAt.toDate ? a.revisedAt.toDate().getTime() : 0;
+      const bt = b.revisedAt && b.revisedAt.toDate ? b.revisedAt.toDate().getTime() : 0;
+      return bt - at;
+    });
+    sortedRevisions.forEach((rev, idx) => {
+      const num = sortedRevisions.length - idx; // Newest = highest number
+      const ts = rev.revisedAt && rev.revisedAt.toDate ? rev.revisedAt.toDate().toLocaleString() : "—";
+      const by = rev.revisedByName || rev.revisedByEmail || "—";
+      auditSection += `
+        <li class="revision-item">
+          <div class="revision-head">
+            <span class="revision-num">REVISION ${String(num).padStart(2, "0")}</span>
+            <span class="revision-time">${escapeHtml(ts)}</span>
+          </div>
+          <span class="revision-by">By ${escapeHtml(by)}</span>
+          <div class="revision-reason">${escapeHtml(rev.reason || "—")}</div>
+        </li>
+      `;
+    });
+    // Original at the bottom of the list
+    auditSection += `
+      <li class="revision-item original">
+        <div class="revision-head">
+          <span class="revision-num original">ORIGINAL</span>
+          <span class="revision-time">${escapeHtml(submittedAtLabel)}</span>
+        </div>
+        <span class="revision-by">By ${escapeHtml(data.userDisplayName || data.userEmail || "—")}</span>
+      </li>
+    `;
+    auditSection += `</ul></div>`;
+  }
+
+  auditSection += `</div>`;
+  sections.push(auditSection);
 
   detailContent.innerHTML = sections.join("");
 }
@@ -850,6 +1223,12 @@ function resetJsaForm() {
   if (taskRoutine) taskRoutine.checked = true;
   customTasksEl.innerHTML = "";
   customTaskCount = 0;
+  // Hospital lookup status and revision reason
+  if (hospitalStatus) {
+    hospitalStatus.hidden = true;
+    hospitalStatus.textContent = "";
+  }
+  if (revisionReasonInput) revisionReasonInput.value = "";
 }
 
 // ============== TOAST ==============
