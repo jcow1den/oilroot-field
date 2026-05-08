@@ -131,7 +131,7 @@
         </div>
         <div class="action-card-text">
           <span class="action-card-title">Start a new JSA</span>
-          <span class="action-card-sub">Pre-job hazard analysis · 30 seconds typical</span>
+          <span class="action-card-sub">Pre-job hazard analysis</span>
         </div>
         <svg class="action-card-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -172,6 +172,15 @@
         <p class="spec-label" id="form-mode-label">NEW JSA · STEP 2 OF 2</p>
         <h1 class="view-title" id="jsa-job-title">Flowback Operations</h1>
         <p class="view-sub" id="form-mode-sub">Pre-job hazard analysis. Smart defaults pre-loaded. Spend your attention on what's specific to today.</p>
+      </div>
+
+      <!-- Daily fact banner -->
+      <div id="fact-banner" class="fact-banner">
+        <div class="fact-label font-mono">FROM THE PATCH</div>
+        <p id="fact-text" class="fact-text">—</p>
+        <button type="button" id="fact-shuffle" class="fact-shuffle" aria-label="Show another">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
 
       <!-- Edit-only: Reason for revision -->
@@ -236,45 +245,67 @@
       <div class="form-section">
         <div class="section-head">
           <span class="section-num font-mono">§ 02</span>
-          <h2 class="section-title">Standard items</h2>
+          <h2 class="section-title">Hazards on this job</h2>
         </div>
 
         <p class="section-blurb">
-          The standard hazards, controls, and PPE for flowback work are pre-loaded below. Tap to confirm they all apply, or flag exceptions.
+          Tap any hazard to see what can actually happen. The point isn't to scare anyone, it's to remember why we do this.
         </p>
 
-        <div id="standard-items-card" class="standard-card">
-          <div class="standard-section">
-            <div class="standard-section-head">
-              <span class="spec-label" id="hazards-label">Standard hazards</span>
-              <button type="button" class="link-toggle" data-toggle="hazards-list">View list</button>
-            </div>
-            <ul id="hazards-list" class="standard-list" hidden></ul>
-          </div>
+        <ul id="hazards-list" class="hazard-list-expanded"></ul>
+      </div>
 
-          <div class="standard-section">
-            <div class="standard-section-head">
-              <span class="spec-label" id="controls-label">Standard controls</span>
-              <button type="button" class="link-toggle" data-toggle="controls-list">View list</button>
-            </div>
-            <ul id="controls-list" class="standard-list" hidden></ul>
-          </div>
-
-          <div class="standard-section">
-            <div class="standard-section-head">
-              <span class="spec-label" id="ppe-label">Standard PPE</span>
-              <button type="button" class="link-toggle" data-toggle="ppe-list">View list</button>
-            </div>
-            <ul id="ppe-list" class="standard-list" hidden></ul>
-          </div>
+      <div class="form-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 03</span>
+          <h2 class="section-title">Standard controls in place</h2>
         </div>
+
+        <p class="section-blurb">
+          The control measures expected on every flowback job. Tagged by hierarchy of controls.
+        </p>
+
+        <ul id="controls-list" class="standard-list"></ul>
+      </div>
+
+      <div class="form-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 04</span>
+          <h2 class="section-title">Required PPE</h2>
+        </div>
+
+        <ul id="ppe-list" class="standard-list"></ul>
+      </div>
+
+      <div class="form-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 05</span>
+          <h2 class="section-title">Standard task breakdown</h2>
+        </div>
+
+        <p class="section-blurb">
+          The 5 steps of a routine flowback shift. Each step has its own hazards and specific controls.
+        </p>
+
+        <div id="routine-steps-list" class="routine-steps-list"></div>
+      </div>
+
+      <div class="form-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 06</span>
+          <h2 class="section-title">Confirm review</h2>
+        </div>
+
+        <p class="section-blurb">
+          You've seen the hazards, controls, PPE, and task breakdown above. Confirm they apply to today's job, or flag what's different.
+        </p>
 
         <div class="confirmation-row">
           <button type="button" id="confirm-standard-btn" class="btn-confirm">
             <span class="btn-confirm-check">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            <span class="btn-confirm-label">I confirm all standard items apply to today's work</span>
+            <span class="btn-confirm-label">I've reviewed everything above and it applies to today's work</span>
           </button>
           <button type="button" id="exception-btn" class="btn-ghost-sm">Something is different</button>
         </div>
@@ -282,15 +313,15 @@
         <div id="exception-area" class="exception-area" hidden>
           <label class="field-group">
             <span class="spec-label">What's different from standard?</span>
-            <textarea id="exception-text" class="field textarea" rows="3" placeholder="e.g., H₂S monitor failed bump test, working off backup. Spill kit moved to new location, briefed crew."></textarea>
+            <textarea id="exception-text" class="field textarea" rows="3" placeholder="e.g., H2S monitor failed bump test, working off backup. Spill kit moved to new location, briefed crew."></textarea>
           </label>
         </div>
       </div>
 
-      <!-- Section 03: Today's specifics -->
+      <!-- Section 07: Today's specifics -->
       <div class="form-section">
         <div class="section-head">
-          <span class="section-num font-mono">§ 03</span>
+          <span class="section-num font-mono">§ 07</span>
           <h2 class="section-title">Today's specifics</h2>
         </div>
 
@@ -305,14 +336,14 @@
 
         <label class="field-group">
           <span class="spec-label">Stop work conditions for today</span>
-          <textarea id="jsa-stop-work" class="field textarea" rows="3" placeholder="e.g., H₂S sustained above 10 ppm. Sustained winds over 30 mph. Any unexplained pressure spike on choke. Sand production above 20 lbs/min."></textarea>
+          <textarea id="jsa-stop-work" class="field textarea" rows="3" placeholder="e.g., H2S sustained above 10 ppm. Sustained winds over 30 mph. Any unexplained pressure spike on choke. Sand production above 20 lbs/min."></textarea>
         </label>
       </div>
 
-      <!-- Section 04: Today's tasks -->
+      <!-- Section 08: Today's tasks -->
       <div class="form-section">
         <div class="section-head">
-          <span class="section-num font-mono">§ 04</span>
+          <span class="section-num font-mono">§ 08</span>
           <h2 class="section-title">Today's tasks</h2>
         </div>
 
@@ -334,10 +365,10 @@
         <div id="custom-tasks" class="custom-tasks-area"></div>
       </div>
 
-      <!-- Section 05: Crew & signatures (placeholder) -->
+      <!-- Section 09: Crew & signatures (placeholder) -->
       <div class="form-section">
         <div class="section-head">
-          <span class="section-num font-mono">§ 05</span>
+          <span class="section-num font-mono">§ 09</span>
           <h2 class="section-title">Crew &amp; signatures</h2>
         </div>
 
