@@ -372,7 +372,8 @@ captureGpsBtn.addEventListener("click", () => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       capturedGps = { lat, lng, accuracy: pos.coords.accuracy, capturedAt: new Date().toISOString() };
-      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`;
+      const accFt = Math.round((pos.coords.accuracy || 0) * 3.281);
+      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}° (±${accFt} ft)`;
       jsaGpsEl.classList.add("captured");
       captureGpsBtn.textContent = "Recapture";
       captureGpsBtn.disabled = false;
@@ -387,7 +388,11 @@ captureGpsBtn.addEventListener("click", () => {
       captureGpsBtn.textContent = "Capture GPS";
       captureGpsBtn.disabled = false;
     },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    {
+      enableHighAccuracy: true,
+      timeout: 20000,
+      maximumAge: 0
+    }
   );
 });
 
@@ -405,7 +410,8 @@ function autoCaptureGps() {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       capturedGps = { lat, lng, accuracy: pos.coords.accuracy, capturedAt: new Date().toISOString() };
-      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`;
+      const accFt = Math.round((pos.coords.accuracy || 0) * 3.281);
+      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}° (±${accFt} ft)`;
       jsaGpsEl.classList.add("captured");
       captureGpsBtn.textContent = "Recapture";
       captureGpsBtn.disabled = false;
@@ -415,11 +421,12 @@ function autoCaptureGps() {
       // Quiet failure for auto-capture; user can still tap the button
       captureGpsBtn.textContent = "Capture GPS";
       captureGpsBtn.disabled = false;
-      if (err.code === 1) {
-        // Permission denied; do nothing
-      }
     },
-    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    {
+      enableHighAccuracy: true,
+      timeout: 20000,    // 20s gives the GPS chip time to lock
+      maximumAge: 0      // Never accept a cached fix
+    }
   );
 }
 
@@ -448,7 +455,7 @@ async function lookupNearestHospital(lat, lng) {
     }
 
     jsaHospital.value = result.display;
-    hospitalStatus.textContent = `Auto-suggested · ${result.distanceKm.toFixed(1)} km away. Edit if wrong.`;
+    hospitalStatus.textContent = `Auto-suggested · ${result.distanceMi.toFixed(1)} mi away. Edit if wrong.`;
   } catch (err) {
     console.warn("Hospital lookup failed:", err);
     hospitalStatus.textContent = "Hospital lookup unavailable. Type one in.";
@@ -456,13 +463,23 @@ async function lookupNearestHospital(lat, lng) {
 }
 
 async function queryOverpassForHospital(lat, lng, radiusMeters) {
+  // We want full-service hospitals with emergency departments, not specialty
+  // clinics. OpenStreetMap data quality varies, so we use multiple signals:
+  //   - amenity=hospital is the base tag
+  //   - emergency=yes confirms an ER (best signal when present)
+  //   - healthcare=hospital is a more rigorous tag than amenity alone
+  // We exclude specialty/eye/dental/clinic-style facilities by keyword.
   const overpassQuery = `
     [out:json][timeout:8];
     (
+      node["amenity"="hospital"]["emergency"="yes"](around:${radiusMeters},${lat},${lng});
+      way["amenity"="hospital"]["emergency"="yes"](around:${radiusMeters},${lat},${lng});
+      node["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
+      way["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       node["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
     );
-    out center 5;
+    out center 25;
   `;
   const url = "https://overpass-api.de/api/interpreter";
   const resp = await fetch(url, {
@@ -473,27 +490,74 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
   const data = await resp.json();
   if (!data.elements || data.elements.length === 0) return null;
 
-  // Compute distance for each result, pick the closest with a name
-  const hospitalsWithDist = data.elements
-    .map(el => {
-      const elLat = el.lat ?? el.center?.lat;
-      const elLng = el.lon ?? el.center?.lon;
-      if (elLat == null || elLng == null) return null;
-      const name = el.tags?.name;
-      if (!name) return null;
-      return {
-        name,
-        distanceKm: haversineKm(lat, lng, elLat, elLng)
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+  // Keywords that indicate a specialty clinic, not a full-service hospital
+  const SPECIALTY_KEYWORDS = [
+    "eye", "vision", "ophthalm", "dental", "orthodont",
+    "dermatolog", "fertility", "psychiatric", "behavioral",
+    "rehabilitation", "rehab center", "surgery center",
+    "outpatient", "urgent care", "veterinary", "animal",
+    "children", "pediatric only", "cancer center",
+    "cardiac care", "orthopedic only", "physical therapy"
+  ];
 
-  if (!hospitalsWithDist.length) return null;
-  const closest = hospitalsWithDist[0];
+  function looksLikeSpecialty(name, tags) {
+    const lower = (name || "").toLowerCase();
+    if (SPECIALTY_KEYWORDS.some(kw => lower.includes(kw))) return true;
+    // Tag-based filters
+    if (tags?.healthcare === "clinic") return true;
+    if (tags?.healthcare === "doctor") return true;
+    if (tags?.healthcare === "dentist") return true;
+    return false;
+  }
+
+  // Build candidate list with distance, separating preferred from fallback
+  const preferred = [];   // Has emergency=yes or healthcare=hospital
+  const fallback = [];    // Generic amenity=hospital, not specialty
+
+  // Deduplicate by place ID
+  const seen = new Set();
+
+  data.elements.forEach(el => {
+    const elLat = el.lat ?? el.center?.lat;
+    const elLng = el.lon ?? el.center?.lon;
+    if (elLat == null || elLng == null) return;
+    const name = el.tags?.name;
+    if (!name) return;
+    const id = `${el.type}-${el.id}`;
+    if (seen.has(id)) return;
+    seen.add(id);
+
+    if (looksLikeSpecialty(name, el.tags)) return;
+
+    const candidate = {
+      name,
+      tags: el.tags || {},
+      distanceMi: haversineKm(lat, lng, elLat, elLng) * 0.621371
+    };
+
+    const hasEr = el.tags?.emergency === "yes";
+    const isHospitalHealthcare = el.tags?.healthcare === "hospital";
+
+    if (hasEr || isHospitalHealthcare) {
+      preferred.push(candidate);
+    } else {
+      fallback.push(candidate);
+    }
+  });
+
+  // Pick from preferred list first; fall back to generic only if nothing better
+  const pool = preferred.length ? preferred : fallback;
+  if (!pool.length) return null;
+
+  pool.sort((a, b) => a.distanceMi - b.distanceMi);
+  const closest = pool[0];
+
+  // Annotate the suggestion if we know it has an ER
+  const erSuffix = closest.tags?.emergency === "yes" ? " · ER confirmed" : "";
+
   return {
-    display: `${closest.name} (~${closest.distanceKm.toFixed(1)} km)`,
-    distanceKm: closest.distanceKm
+    display: `${closest.name} (~${closest.distanceMi.toFixed(1)} mi)${erSuffix}`,
+    distanceMi: closest.distanceMi
   };
 }
 
@@ -906,7 +970,8 @@ function openJsaForEdit(docId, data) {
   // GPS preserved from prior state
   if (data.gps) {
     capturedGps = data.gps;
-    jsaGpsEl.textContent = `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}°`;
+    const accFt = Math.round((data.gps.accuracy || 0) * 3.281);
+    jsaGpsEl.textContent = `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° (±${accFt} ft)`;
     jsaGpsEl.classList.add("captured");
     captureGpsBtn.textContent = "Recapture";
   }
@@ -956,7 +1021,7 @@ function renderDetailView(data) {
     ? new Date(data.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
     : "—";
   const gpsLabel = data.gps
-    ? `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° (±${Math.round(data.gps.accuracy || 0)}m)`
+    ? `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° (±${Math.round((data.gps.accuracy || 0) * 3.281)} ft)`
     : "Not captured";
 
   sections.push(`
