@@ -1566,8 +1566,36 @@ html, body {
   width: 18px;
   height: 18px;
   margin-top: 1px;
-  accent-color: var(--rust-bright);
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: var(--bg-2);
+  border: 1.5px solid var(--line-2);
+  border-radius: 3px;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.checkbox-item input[type=checkbox]:hover {
+  border-color: var(--ink-2);
+}
+
+.checkbox-item input[type=checkbox]:checked {
+  background: var(--rust-bright);
+  border-color: var(--rust-bright);
+}
+
+.checkbox-item input[type=checkbox]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .checkbox-item-text {
