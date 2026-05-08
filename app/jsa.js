@@ -712,22 +712,67 @@ async function getCachedLocation() {
   }
 }
 
-// Browser geolocation as a Promise. Resolves with {lat, lng, accuracy} or null on failure.
+// Browser geolocation as a Promise. Uses watchPosition (not getCurrentPosition)
+// so the browser has a chance to refine the fix over time. Returns the best
+// (smallest accuracy radius) fix it sees within the watch window.
+//
+// Why this matters: getCurrentPosition often returns a fast, low-accuracy
+// WiFi/IP estimate and stops. watchPosition keeps firing as the browser
+// refines its fix from satellite, WiFi, cell, etc. KPA does it this way.
 function getBrowserLocation() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
       resolve(null);
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({
+
+    let bestFix = null;
+    let watchId = null;
+    let resolved = false;
+
+    const finish = () => {
+      if (resolved) return;
+      resolved = true;
+      if (watchId !== null) {
+        try { navigator.geolocation.clearWatch(watchId); } catch {}
+      }
+      resolve(bestFix);
+    };
+
+    const onSuccess = (pos) => {
+      const fix = {
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
         accuracy: pos.coords.accuracy
-      }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
+      };
+      // Keep the smallest accuracy radius we've seen
+      if (!bestFix || fix.accuracy < bestFix.accuracy) {
+        bestFix = fix;
+      }
+      // If we got a high-accuracy fix, no need to keep watching
+      if (fix.accuracy <= HIGH_ACCURACY_THRESHOLD_M) {
+        finish();
+      }
+    };
+
+    const onError = () => {
+      // Don't resolve immediately on a single error; the watch may still produce a fix
+      // The overall timeout below handles the case where nothing comes in
+    };
+
+    try {
+      watchId = navigator.geolocation.watchPosition(onSuccess, onError, {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      });
+    } catch {
+      resolve(null);
+      return;
+    }
+
+    // Hard cap: stop watching after 12 seconds and return whatever's best so far
+    setTimeout(finish, 12000);
   });
 }
 
