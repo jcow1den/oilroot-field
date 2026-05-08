@@ -25,7 +25,8 @@ import {
   serverTimestamp,
   updateDoc,
   arrayUnion,
-  Timestamp
+  Timestamp,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 // auth.js already initialized Firebase. We just grab the existing app.
@@ -585,12 +586,15 @@ captureGpsBtn.addEventListener("click", () => {
   autoCaptureGps();
 });
 
-// Auto-capture GPS when the form opens. Uses two sources in parallel:
+// Auto-capture GPS when the form opens. Uses three sources in parallel:
 // 1. Browser geolocation (great on phones, often wildly off on laptops)
 // 2. iplocate.io network-based lookup (better than browser fallback for cell hotspots)
-// Whichever returns the more accurate result wins. If both fail, the manual
-// button stays available.
+// 3. Cached "last good location" from Firestore (saved by any device that previously
+//    got a high-accuracy GPS fix on this user's account)
+// Whichever returns the most accurate result wins. If we get a high-accuracy fix
+// from the device, we save it to Firestore so other devices on this account benefit.
 const IPLOCATE_API_KEY = "6186e45569220b16fb537bd3056600eb";
+const HIGH_ACCURACY_THRESHOLD_M = 300;  // ~1000 ft, phone-GPS quality
 
 function autoCaptureGps() {
   if (capturedGps) return; // Already captured (e.g. in edit mode)
@@ -598,17 +602,25 @@ function autoCaptureGps() {
   captureGpsBtn.disabled = true;
   captureGpsBtn.textContent = "Capturing...";
 
-  // Fire both location sources in parallel
+  // Fire all three location sources in parallel
   const browserPromise = getBrowserLocation();
   const iplocatePromise = getIplocateLocation();
+  const cachedPromise = getCachedLocation();
 
-  Promise.allSettled([browserPromise, iplocatePromise]).then(results => {
+  Promise.allSettled([browserPromise, iplocatePromise, cachedPromise]).then(results => {
+    const [browserR, iplocateR, cachedR] = results;
+
+    // Collect successful results with their source
     const candidates = [];
-    results.forEach((r, idx) => {
-      if (r.status === "fulfilled" && r.value) {
-        candidates.push({ ...r.value, source: idx === 0 ? "browser" : "iplocate" });
-      }
-    });
+    if (browserR.status === "fulfilled" && browserR.value) {
+      candidates.push({ ...browserR.value, source: "browser" });
+    }
+    if (iplocateR.status === "fulfilled" && iplocateR.value) {
+      candidates.push({ ...iplocateR.value, source: "iplocate" });
+    }
+    if (cachedR.status === "fulfilled" && cachedR.value) {
+      candidates.push({ ...cachedR.value, source: "cached" });
+    }
 
     if (!candidates.length) {
       captureGpsBtn.textContent = "Capture GPS";
@@ -616,24 +628,88 @@ function autoCaptureGps() {
       return;
     }
 
-    // Pick the most accurate result (smallest accuracy radius)
+    // If the browser fix is high-accuracy (real GPS), it wins outright.
+    // Save it to Firestore so other devices on this account can use it later.
+    const browserFix = candidates.find(c => c.source === "browser");
+    if (browserFix && browserFix.accuracy <= HIGH_ACCURACY_THRESHOLD_M) {
+      applyLocation(browserFix);
+      saveLocationToCache(browserFix);
+      return;
+    }
+
+    // No high-accuracy device fix. Prefer cached (real prior GPS) over network
+    // estimates (iplocate or browser-IP-fallback), since the cached value came
+    // from an actual GPS chip at some point.
+    const cached = candidates.find(c => c.source === "cached");
+    if (cached) {
+      applyLocation(cached);
+      return;
+    }
+
+    // No high-accuracy fix and no cache. Fall back to whichever wide source
+    // returned the smallest accuracy radius.
     candidates.sort((a, b) => (a.accuracy || Infinity) - (b.accuracy || Infinity));
-    const best = candidates[0];
-
-    capturedGps = {
-      lat: best.lat,
-      lng: best.lng,
-      accuracy: best.accuracy,
-      source: best.source,
-      capturedAt: new Date().toISOString()
-    };
-
-    jsaGpsEl.textContent = `${best.lat.toFixed(5)}°, ${best.lng.toFixed(5)}° ${formatAccuracy(best.accuracy, best.source)}`;
-    jsaGpsEl.classList.add("captured");
-    captureGpsBtn.textContent = "Recapture";
-    captureGpsBtn.disabled = false;
-    lookupNearestHospital(best.lat, best.lng);
+    applyLocation(candidates[0]);
   });
+}
+
+// Apply a location result to the form
+function applyLocation(loc) {
+  capturedGps = {
+    lat: loc.lat,
+    lng: loc.lng,
+    accuracy: loc.accuracy,
+    source: loc.source,
+    capturedAt: new Date().toISOString()
+  };
+  jsaGpsEl.textContent = `${loc.lat.toFixed(5)}°, ${loc.lng.toFixed(5)}° ${formatAccuracy(loc.accuracy, loc.source)}`;
+  jsaGpsEl.classList.add("captured");
+  captureGpsBtn.textContent = "Recapture";
+  captureGpsBtn.disabled = false;
+  lookupNearestHospital(loc.lat, loc.lng);
+}
+
+// Save a high-accuracy location to Firestore so other devices on this account
+// can use it as a fallback when they can't get a good fix locally.
+async function saveLocationToCache(loc) {
+  if (!currentUser) return;
+  try {
+    const ref = doc(db, "users", currentUser.uid);
+    await setDoc(ref, {
+      lastGoodLocation: {
+        lat: loc.lat,
+        lng: loc.lng,
+        accuracy: loc.accuracy,
+        capturedAt: serverTimestamp()
+      }
+    }, { merge: true });
+  } catch (err) {
+    // Non-fatal; the user just doesn't get cross-device sync this time
+    console.warn("Could not cache location:", err);
+  }
+}
+
+// Read the cached "last good location" from Firestore. Returns {lat, lng, accuracy}
+// or null if there's no cached location or the user isn't signed in.
+async function getCachedLocation() {
+  if (!currentUser) return null;
+  try {
+    const ref = doc(db, "users", currentUser.uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    if (!data.lastGoodLocation) return null;
+    const cached = data.lastGoodLocation;
+    if (typeof cached.lat !== "number" || typeof cached.lng !== "number") return null;
+    return {
+      lat: cached.lat,
+      lng: cached.lng,
+      accuracy: cached.accuracy || HIGH_ACCURACY_THRESHOLD_M
+    };
+  } catch (err) {
+    console.warn("Could not read cached location:", err);
+    return null;
+  }
 }
 
 // Browser geolocation as a Promise. Resolves with {lat, lng, accuracy} or null on failure.
@@ -667,8 +743,6 @@ async function getIplocateLocation() {
     if (typeof data.latitude !== "number" || typeof data.longitude !== "number") return null;
     // iplocate doesn't return an accuracy radius. Network/IP-based lookups are
     // typically accurate to city level; estimate 5 mi (~8000 m) as a baseline.
-    // This lets the comparison logic prefer high-precision browser GPS when
-    // available, and prefer iplocate when browser falls back to a wider IP fix.
     return {
       lat: data.latitude,
       lng: data.longitude,
@@ -685,12 +759,14 @@ function formatAccuracy(accuracyMeters, source) {
   if (!accuracyMeters || accuracyMeters <= 0) return "";
   const accFt = accuracyMeters * 3.281;
   const accMi = accuracyMeters * 0.000621371;
-  const sourceLabel = source === "iplocate" ? " · network estimate"
-                    : (accMi >= 0.5 ? " · WiFi/IP estimate" : "");
+  let sourceLabel = "";
+  if (source === "iplocate") sourceLabel = " · network estimate";
+  else if (source === "cached") sourceLabel = " · last known good";
+  else if (accMi >= 0.5) sourceLabel = " · WiFi/IP estimate";
   if (accMi >= 0.5) {
     return `(±${accMi.toFixed(1)} mi${sourceLabel})`;
   }
-  return `(±${Math.round(accFt)} ft)`;
+  return `(±${Math.round(accFt)} ft${sourceLabel})`;
 }
 
 // Look up nearest hospital from GPS coordinates using OpenStreetMap Overpass API.
