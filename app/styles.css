@@ -1266,6 +1266,213 @@ html, body {
   border-top: 1px solid var(--line);
 }
 
+/* ============== FACT BANNER ============== */
+.fact-banner {
+  background: linear-gradient(180deg, rgba(234, 88, 12, 0.07), rgba(234, 88, 12, 0.02));
+  border: 1px solid rgba(234, 88, 12, 0.25);
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 8px 12px;
+  align-items: start;
+  margin-bottom: 4px;
+}
+
+.fact-label {
+  grid-column: 1;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--rust-bright);
+}
+
+.fact-text {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: 'Instrument Serif', serif;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+
+.fact-shuffle {
+  grid-column: 2;
+  grid-row: 1;
+  background: transparent;
+  border: 1px solid rgba(234, 88, 12, 0.3);
+  color: var(--rust-bright);
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s ease;
+}
+
+.fact-shuffle:hover {
+  background: rgba(234, 88, 12, 0.08);
+  border-color: var(--rust-bright);
+}
+
+/* ============== EXPANDED HAZARD LIST (tap-to-elaborate) ============== */
+.hazard-list-expanded {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hazard-item {
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.18s ease;
+}
+
+.hazard-item.expanded {
+  border-color: var(--line-2);
+}
+
+.hazard-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.4;
+  transition: background 0.15s ease;
+}
+
+.hazard-head:hover {
+  background: rgba(234, 88, 12, 0.04);
+}
+
+.hazard-arrow {
+  color: var(--ink-3);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.hazard-item.expanded .hazard-arrow {
+  transform: rotate(90deg);
+  color: var(--rust-bright);
+}
+
+.hazard-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.hazard-elaboration {
+  padding: 0 14px 14px 36px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-2);
+  border-top: 1px solid var(--line);
+  background: var(--bg-2);
+  padding-top: 12px;
+}
+
+.hazard-elaboration .elaboration-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--rust-bright);
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* ============== ROUTINE STEPS (always visible) ============== */
+.routine-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.routine-step {
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.routine-step-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.routine-step-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--rust-bright);
+}
+
+.routine-step-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.routine-step-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.routine-step-block-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+}
+
+.routine-step-block-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.routine-step-block-list li {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.45;
+  padding-left: 12px;
+  position: relative;
+}
+
+.routine-step-block-list li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--ink-3);
+}
+
 /* ============== TOAST ============== */
 .toast {
   position: fixed;
