@@ -372,8 +372,7 @@ captureGpsBtn.addEventListener("click", () => {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       capturedGps = { lat, lng, accuracy: pos.coords.accuracy, capturedAt: new Date().toISOString() };
-      const accFt = Math.round((pos.coords.accuracy || 0) * 3.281);
-      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}° (±${accFt} ft)`;
+      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}° ${formatAccuracy(pos.coords.accuracy)}`;
       jsaGpsEl.classList.add("captured");
       captureGpsBtn.textContent = "Recapture";
       captureGpsBtn.disabled = false;
@@ -410,8 +409,7 @@ function autoCaptureGps() {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
       capturedGps = { lat, lng, accuracy: pos.coords.accuracy, capturedAt: new Date().toISOString() };
-      const accFt = Math.round((pos.coords.accuracy || 0) * 3.281);
-      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}° (±${accFt} ft)`;
+      jsaGpsEl.textContent = `${lat.toFixed(5)}°, ${lng.toFixed(5)}° ${formatAccuracy(pos.coords.accuracy)}`;
       jsaGpsEl.classList.add("captured");
       captureGpsBtn.textContent = "Recapture";
       captureGpsBtn.disabled = false;
@@ -430,18 +428,56 @@ function autoCaptureGps() {
   );
 }
 
+// Format GPS accuracy: feet for under 0.5 mi, miles for wider
+function formatAccuracy(accuracyMeters) {
+  if (!accuracyMeters || accuracyMeters <= 0) return "";
+  const accFt = accuracyMeters * 3.281;
+  const accMi = accuracyMeters * 0.000621371;
+  if (accMi >= 0.5) {
+    return `(±${accMi.toFixed(1)} mi · WiFi/IP estimate)`;
+  }
+  return `(±${Math.round(accFt)} ft)`;
+}
+
 // Look up nearest hospital from GPS coordinates using OpenStreetMap Overpass API.
-// Free, no API key. Search radius starts at 10km and expands to 50km if nothing found.
+// Free, no API key. Tiered behavior based on GPS accuracy:
+//   - High accuracy (under 1000 ft): trust the fix, search small radius first
+//   - Medium accuracy (1000 ft - 10 mi): warn user, search wider radius
+//   - Low accuracy (over 10 mi): too unreliable to suggest, just offer search
 async function lookupNearestHospital(lat, lng) {
   // Don't overwrite if user has already typed something
   if (jsaHospital.value.trim()) return;
 
+  const accuracyMeters = capturedGps?.accuracy || 0;
+  const accuracyMiles = accuracyMeters * 0.000621371;
+
+  // If accuracy is over 10 miles, the fix is so wide that auto-suggesting
+  // a specific hospital would be misleading. Just hint that they can type.
+  if (accuracyMiles > 10) {
+    hospitalStatus.hidden = false;
+    hospitalStatus.textContent = `GPS too imprecise for auto-suggest (±${accuracyMiles.toFixed(0)} mi). Type your hospital.`;
+    return;
+  }
+
   hospitalStatus.hidden = false;
   hospitalStatus.textContent = "Finding nearest hospital...";
 
+  // Pick search radius based on how confident we are in the location
+  let searchRadiusMeters;
+  if (accuracyMiles <= 0.2) {
+    searchRadiusMeters = 16000;  // ~10 mi for accurate fixes
+  } else if (accuracyMiles <= 2) {
+    searchRadiusMeters = 32000;  // ~20 mi for medium accuracy
+  } else {
+    searchRadiusMeters = 80000;  // ~50 mi for low accuracy
+  }
+
   try {
-    const result = await queryOverpassForHospital(lat, lng, 10000)
-      || await queryOverpassForHospital(lat, lng, 50000);
+    let result = await queryOverpassForHospital(lat, lng, searchRadiusMeters);
+    // If nothing found in initial search, try a wider radius
+    if (!result && searchRadiusMeters < 80000) {
+      result = await queryOverpassForHospital(lat, lng, 80000);
+    }
 
     if (!result) {
       hospitalStatus.textContent = "No hospital found nearby. Type one in.";
@@ -455,7 +491,13 @@ async function lookupNearestHospital(lat, lng) {
     }
 
     jsaHospital.value = result.display;
-    hospitalStatus.textContent = `Auto-suggested · ${result.distanceMi.toFixed(1)} mi away. Edit if wrong.`;
+
+    // Calibrate the message to GPS confidence
+    if (accuracyMiles <= 0.2) {
+      hospitalStatus.textContent = `Auto-suggested · ${result.distanceMi.toFixed(1)} mi away. Edit if wrong.`;
+    } else {
+      hospitalStatus.textContent = `Best guess based on imprecise location (±${accuracyMiles.toFixed(1)} mi). Verify.`;
+    }
   } catch (err) {
     console.warn("Hospital lookup failed:", err);
     hospitalStatus.textContent = "Hospital lookup unavailable. Type one in.";
@@ -464,11 +506,11 @@ async function lookupNearestHospital(lat, lng) {
 
 async function queryOverpassForHospital(lat, lng, radiusMeters) {
   // We want full-service hospitals with emergency departments, not specialty
-  // clinics. OpenStreetMap data quality varies, so we use multiple signals:
-  //   - amenity=hospital is the base tag
-  //   - emergency=yes confirms an ER (best signal when present)
-  //   - healthcare=hospital is a more rigorous tag than amenity alone
-  // We exclude specialty/eye/dental/clinic-style facilities by keyword.
+  // clinics, dental offices, or anything else that someone tagged amenity=hospital.
+  // Require either emergency=yes (best signal) OR healthcare=hospital (rigorous tag).
+  // We deliberately do NOT fall back to generic amenity=hospital, since that tag
+  // is unreliable in OSM and includes everything from eye clinics to (yes, really)
+  // miscategorized car dealerships.
   const overpassQuery = `
     [out:json][timeout:8];
     (
@@ -476,8 +518,6 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
       way["amenity"="hospital"]["emergency"="yes"](around:${radiusMeters},${lat},${lng});
       node["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
-      node["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
-      way["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
     );
     out center 25;
   `;
@@ -490,31 +530,27 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
   const data = await resp.json();
   if (!data.elements || data.elements.length === 0) return null;
 
-  // Keywords that indicate a specialty clinic, not a full-service hospital
+  // Even within tagged hospitals, exclude obvious specialty facilities
   const SPECIALTY_KEYWORDS = [
     "eye", "vision", "ophthalm", "dental", "orthodont",
     "dermatolog", "fertility", "psychiatric", "behavioral",
     "rehabilitation", "rehab center", "surgery center",
     "outpatient", "urgent care", "veterinary", "animal",
-    "children", "pediatric only", "cancer center",
-    "cardiac care", "orthopedic only", "physical therapy"
+    "cancer center", "cardiac care only", "physical therapy",
+    "chevrolet", "ford", "toyota", "dealership", "auto"
   ];
 
   function looksLikeSpecialty(name, tags) {
     const lower = (name || "").toLowerCase();
     if (SPECIALTY_KEYWORDS.some(kw => lower.includes(kw))) return true;
-    // Tag-based filters
     if (tags?.healthcare === "clinic") return true;
     if (tags?.healthcare === "doctor") return true;
     if (tags?.healthcare === "dentist") return true;
     return false;
   }
 
-  // Build candidate list with distance, separating preferred from fallback
-  const preferred = [];   // Has emergency=yes or healthcare=hospital
-  const fallback = [];    // Generic amenity=hospital, not specialty
-
-  // Deduplicate by place ID
+  // All results passed the tag filter. Now build distance-sorted list.
+  const candidates = [];
   const seen = new Set();
 
   data.elements.forEach(el => {
@@ -529,30 +565,18 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
 
     if (looksLikeSpecialty(name, el.tags)) return;
 
-    const candidate = {
+    candidates.push({
       name,
       tags: el.tags || {},
       distanceMi: haversineKm(lat, lng, elLat, elLng) * 0.621371
-    };
-
-    const hasEr = el.tags?.emergency === "yes";
-    const isHospitalHealthcare = el.tags?.healthcare === "hospital";
-
-    if (hasEr || isHospitalHealthcare) {
-      preferred.push(candidate);
-    } else {
-      fallback.push(candidate);
-    }
+    });
   });
 
-  // Pick from preferred list first; fall back to generic only if nothing better
-  const pool = preferred.length ? preferred : fallback;
-  if (!pool.length) return null;
+  if (!candidates.length) return null;
 
-  pool.sort((a, b) => a.distanceMi - b.distanceMi);
-  const closest = pool[0];
+  candidates.sort((a, b) => a.distanceMi - b.distanceMi);
+  const closest = candidates[0];
 
-  // Annotate the suggestion if we know it has an ER
   const erSuffix = closest.tags?.emergency === "yes" ? " · ER confirmed" : "";
 
   return {
@@ -970,8 +994,7 @@ function openJsaForEdit(docId, data) {
   // GPS preserved from prior state
   if (data.gps) {
     capturedGps = data.gps;
-    const accFt = Math.round((data.gps.accuracy || 0) * 3.281);
-    jsaGpsEl.textContent = `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° (±${accFt} ft)`;
+    jsaGpsEl.textContent = `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° ${formatAccuracy(data.gps.accuracy)}`;
     jsaGpsEl.classList.add("captured");
     captureGpsBtn.textContent = "Recapture";
   }
@@ -1021,7 +1044,7 @@ function renderDetailView(data) {
     ? new Date(data.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
     : "—";
   const gpsLabel = data.gps
-    ? `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° (±${Math.round((data.gps.accuracy || 0) * 3.281)} ft)`
+    ? `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° ${formatAccuracy(data.gps.accuracy)}`
     : "Not captured";
 
   sections.push(`
