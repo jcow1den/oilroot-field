@@ -16,7 +16,6 @@
 <div id="auth-screen" class="screen">
   <div class="auth-container">
 
-    <!-- Logo + brand -->
     <div class="brand">
       <svg width="34" height="34" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M16 2 L26 28 L6 28 Z" stroke="#f5f5f4" stroke-width="1.4" fill="none"/>
@@ -28,19 +27,16 @@
       <span class="brand-name">Oilroot <span class="brand-mute">/ Field</span></span>
     </div>
 
-    <!-- Status pill -->
     <div class="status-pill">
       <span class="dot"></span>
       <span class="status-text">CONCEPT · BUILDING IN PUBLIC</span>
     </div>
 
-    <!-- Tab toggle -->
     <div class="tabs" role="tablist">
       <button id="tab-signin" class="tab active" role="tab">Sign in</button>
       <button id="tab-signup" class="tab" role="tab">Create account</button>
     </div>
 
-    <!-- Sign in form -->
     <form id="signin-form" class="auth-form">
       <label class="field-group">
         <span class="spec-label">Email</span>
@@ -56,7 +52,6 @@
       </button>
     </form>
 
-    <!-- Sign up form -->
     <form id="signup-form" class="auth-form" hidden>
       <label class="field-group">
         <span class="spec-label">Full name</span>
@@ -77,10 +72,8 @@
       </button>
     </form>
 
-    <!-- Divider -->
     <div class="divider"><span>OR</span></div>
 
-    <!-- Google sign-in -->
     <button id="google-signin" class="btn-ghost btn-google">
       <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -91,46 +84,269 @@
       Continue with Google
     </button>
 
-    <!-- Error / message area -->
     <div id="auth-message" class="auth-message" hidden></div>
 
-    <!-- Footer note -->
     <p class="footnote">
       By signing up, you confirm you have field experience and are using this for legitimate HSE documentation. Records you create are yours and exportable at any time.
     </p>
-
   </div>
 </div>
 
-<!-- ============== APP HOME (placeholder for now) ============== -->
+<!-- ============== APP SHELL ============== -->
 <div id="app-screen" class="screen" hidden>
+
   <header class="app-header">
-    <div class="brand small">
-      <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-        <path d="M16 2 L26 28 L6 28 Z" stroke="#f5f5f4" stroke-width="1.4" fill="none"/>
-        <path d="M11 16 L21 16" stroke="#f5f5f4" stroke-width="1.2"/>
-        <path d="M13 22 L19 22" stroke="#f5f5f4" stroke-width="1.2"/>
-        <path d="M16 28 L16 31" stroke="#ea580c" stroke-width="1.6"/>
-      </svg>
-      <span class="brand-name">Oilroot <span class="brand-mute">/ Field</span></span>
+    <div class="app-header-left">
+      <button id="back-btn" class="icon-btn" hidden aria-label="Back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="brand small">
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
+          <path d="M16 2 L26 28 L6 28 Z" stroke="#f5f5f4" stroke-width="1.4" fill="none"/>
+          <path d="M11 16 L21 16" stroke="#f5f5f4" stroke-width="1.2"/>
+          <path d="M13 22 L19 22" stroke="#f5f5f4" stroke-width="1.2"/>
+          <path d="M16 28 L16 31" stroke="#ea580c" stroke-width="1.6"/>
+        </svg>
+        <span class="brand-name">Oilroot <span class="brand-mute">/ Field</span></span>
+      </div>
     </div>
     <button id="logout-btn" class="btn-ghost-sm">Sign out</button>
   </header>
 
-  <main class="app-main">
-    <div class="welcome">
-      <p class="spec-label">SIGNED IN AS</p>
-      <h1 id="user-display-name" class="welcome-name">—</h1>
-      <p id="user-email" class="welcome-email">—</p>
+  <main id="view-container" class="app-main">
 
-      <div class="placeholder-card">
-        <p class="spec-label rust">SESSION 1 · COMPLETE</p>
-        <h2>Auth foundation working.</h2>
-        <p class="placeholder-text">JSA module coming in the next session. For now, the foundation is in place: secure account, your data isolated to you, persistent login across devices.</p>
+    <!-- HOME VIEW -->
+    <section id="view-home" class="view">
+      <div class="welcome">
+        <p class="spec-label">SIGNED IN AS</p>
+        <h1 id="user-display-name" class="welcome-name">—</h1>
+        <p id="user-email" class="welcome-email">—</p>
       </div>
-    </div>
+
+      <button id="start-jsa-btn" class="action-card">
+        <div class="action-card-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="action-card-text">
+          <span class="action-card-title">Start a new JSA</span>
+          <span class="action-card-sub">Pre-job hazard analysis · 30 seconds typical</span>
+        </div>
+        <svg class="action-card-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="section-header">
+        <span class="spec-label">PAST JSAs</span>
+      </div>
+
+      <div id="past-jsas-list" class="empty-state">
+        <p class="empty-text">No JSAs yet. Your submitted JSAs will appear here.</p>
+        <p class="empty-sub font-mono">COMING IN SESSION 3 · PERSISTENT STORAGE</p>
+      </div>
+    </section>
+
+    <!-- JOB TYPE PICKER VIEW -->
+    <section id="view-picker" class="view" hidden>
+      <div class="view-intro">
+        <p class="spec-label">NEW JSA · STEP 1 OF 2</p>
+        <h1 class="view-title">Pick the work you're doing.</h1>
+        <p class="view-sub">The JSA will load with the right hazards, controls, and steps for that job type.</p>
+      </div>
+
+      <div class="job-grid" id="job-grid"></div>
+
+      <p class="picker-footnote font-mono">
+        → MORE JOB TYPES SHIP WITH UPCOMING RELEASES. EARLY ACCESS TESTERS GET FIRST PICK.
+      </p>
+    </section>
+
+    <!-- JSA FORM VIEW -->
+    <section id="view-jsa-form" class="view" hidden>
+
+      <div class="view-intro">
+        <p class="spec-label">NEW JSA · STEP 2 OF 2</p>
+        <h1 class="view-title" id="jsa-job-title">Flowback Operations</h1>
+        <p class="view-sub">Pre-job hazard analysis. Smart defaults pre-loaded. Spend your attention on what's specific to today.</p>
+      </div>
+
+      <!-- Section 01: Job site -->
+      <div class="form-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 01</span>
+          <h2 class="section-title">Job site</h2>
+        </div>
+
+        <label class="field-group">
+          <span class="spec-label">Location / pad / well name</span>
+          <input type="text" id="jsa-location" class="field" placeholder="e.g., Smith 12-3H, Pad 4" />
+        </label>
+
+        <div class="field-row">
+          <label class="field-group">
+            <span class="spec-label">Date</span>
+            <input type="date" id="jsa-date" class="field" />
+          </label>
+          <label class="field-group">
+            <span class="spec-label">Shift start</span>
+            <input type="time" id="jsa-time" class="field" />
+          </label>
+        </div>
+
+        <div class="gps-row">
+          <div class="gps-info">
+            <span class="spec-label">GPS coordinates</span>
+            <span id="jsa-gps" class="gps-coords">Not captured</span>
+          </div>
+          <button type="button" id="capture-gps-btn" class="btn-ghost-sm">Capture GPS</button>
+        </div>
+
+        <label class="field-group">
+          <span class="spec-label">Nearest hospital</span>
+          <input type="text" id="jsa-hospital" class="field" placeholder="Name and approximate distance" />
+        </label>
+
+        <label class="field-group">
+          <span class="spec-label">Muster point</span>
+          <input type="text" id="jsa-muster" class="field" placeholder="e.g., NE corner of pad, by the lighting tower" />
+        </label>
+      </div>
+
+      <!-- Section 02: Standard items -->
+      <div class="form-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 02</span>
+          <h2 class="section-title">Standard items</h2>
+        </div>
+
+        <p class="section-blurb">
+          The standard hazards, controls, and PPE for flowback work are pre-loaded below. Tap to confirm they all apply, or flag exceptions.
+        </p>
+
+        <div id="standard-items-card" class="standard-card">
+          <div class="standard-section">
+            <div class="standard-section-head">
+              <span class="spec-label" id="hazards-label">Standard hazards</span>
+              <button type="button" class="link-toggle" data-toggle="hazards-list">View list</button>
+            </div>
+            <ul id="hazards-list" class="standard-list" hidden></ul>
+          </div>
+
+          <div class="standard-section">
+            <div class="standard-section-head">
+              <span class="spec-label" id="controls-label">Standard controls</span>
+              <button type="button" class="link-toggle" data-toggle="controls-list">View list</button>
+            </div>
+            <ul id="controls-list" class="standard-list" hidden></ul>
+          </div>
+
+          <div class="standard-section">
+            <div class="standard-section-head">
+              <span class="spec-label" id="ppe-label">Standard PPE</span>
+              <button type="button" class="link-toggle" data-toggle="ppe-list">View list</button>
+            </div>
+            <ul id="ppe-list" class="standard-list" hidden></ul>
+          </div>
+        </div>
+
+        <div class="confirmation-row">
+          <button type="button" id="confirm-standard-btn" class="btn-confirm">
+            <span class="btn-confirm-check">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="btn-confirm-label">I confirm all standard items apply to today's work</span>
+          </button>
+          <button type="button" id="exception-btn" class="btn-ghost-sm">Something is different</button>
+        </div>
+
+        <div id="exception-area" class="exception-area" hidden>
+          <label class="field-group">
+            <span class="spec-label">What's different from standard?</span>
+            <textarea id="exception-text" class="field textarea" rows="3" placeholder="e.g., H₂S monitor failed bump test, working off backup. Spill kit moved to new location, briefed crew."></textarea>
+          </label>
+        </div>
+      </div>
+
+      <!-- Section 03: Today's specifics -->
+      <div class="form-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 03</span>
+          <h2 class="section-title">Today's specifics</h2>
+        </div>
+
+        <p class="section-blurb">
+          The most important part. What's different about this job, today?
+        </p>
+
+        <label class="field-group">
+          <span class="spec-label">What's different about this job today?</span>
+          <textarea id="jsa-today-different" class="field textarea" rows="3" placeholder="e.g., New green hand on crew, paired with experienced operator. Sand cutter showing wear, monitoring closely. Wind out of east, muster point moved to west side."></textarea>
+        </label>
+
+        <label class="field-group">
+          <span class="spec-label">Stop work conditions for today</span>
+          <textarea id="jsa-stop-work" class="field textarea" rows="3" placeholder="e.g., H₂S sustained above 10 ppm. Sustained winds over 30 mph. Any unexplained pressure spike on choke. Sand production above 20 lbs/min."></textarea>
+        </label>
+      </div>
+
+      <!-- Section 04: Today's tasks -->
+      <div class="form-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 04</span>
+          <h2 class="section-title">Today's tasks</h2>
+        </div>
+
+        <div class="task-card">
+          <div class="task-card-head">
+            <input type="checkbox" id="task-routine" class="task-check" checked />
+            <label for="task-routine" class="task-label">
+              <span class="task-title">Routine flowback operations</span>
+              <span class="task-sub">Standard 5-step task breakdown applies</span>
+            </label>
+          </div>
+        </div>
+
+        <button type="button" id="add-task-btn" class="btn-ghost btn-add">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Add non-routine task
+        </button>
+
+        <div id="custom-tasks" class="custom-tasks-area"></div>
+      </div>
+
+      <!-- Section 05: Crew & signatures (placeholder) -->
+      <div class="form-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 05</span>
+          <h2 class="section-title">Crew &amp; signatures</h2>
+        </div>
+
+        <p class="section-blurb">
+          Each crew member signs individually with Stop Work Authority acknowledgment.
+        </p>
+
+        <div class="placeholder-inline">
+          <span class="font-mono">SIGNATURE CAPTURE · WIRES UP IN SESSION 4</span>
+        </div>
+      </div>
+
+      <div class="submit-row">
+        <button type="button" id="submit-jsa-btn" class="btn-primary btn-block">
+          <span class="btn-label">Submit JSA</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <p class="submit-note font-mono">SUBMIT WIRES UP IN SESSION 3 · WORKS UI-ONLY FOR NOW</p>
+      </div>
+
+    </section>
+
   </main>
 </div>
+
+<!-- ============== TOAST ============== -->
+<div id="toast" class="toast" hidden></div>
 
 <!-- ============== LOADING OVERLAY ============== -->
 <div id="loading" class="loading-overlay">
@@ -138,5 +354,6 @@
 </div>
 
 <script type="module" src="auth.js"></script>
+<script type="module" src="jsa.js"></script>
 </body>
 </html>
