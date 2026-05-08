@@ -958,7 +958,7 @@
       </div>
 
       <div class="lg:col-span-6">
-        <div class="card rounded-sm p-8 lg:p-10 relative">
+        <form action="https://formspree.io/f/xaqvpnvn" method="POST" class="card rounded-sm p-8 lg:p-10 relative block">
           <div class="absolute top-0 right-0 m-3">
             <span class="font-mono text-[10px] tracking-widest text-[var(--ink-3)]">FORM / EARLY-ACCESS-001</span>
           </div>
@@ -966,22 +966,22 @@
           <div class="grid grid-cols-2 gap-6 mb-2">
             <div>
               <label class="spec-label">Full name</label>
-              <input type="text" class="field" placeholder="Your name" />
+              <input type="text" name="name" class="field" placeholder="Your name" required />
             </div>
             <div>
               <label class="spec-label">Role</label>
-              <input type="text" class="field" placeholder="Supervisor, HSE, etc." />
+              <input type="text" name="role" class="field" placeholder="Supervisor, HSE, etc." />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-6 mb-2">
             <div>
               <label class="spec-label">Region</label>
-              <input type="text" class="field" placeholder="Bakken, Permian, etc." />
+              <input type="text" name="region" class="field" placeholder="Bakken, Permian, etc." />
             </div>
             <div>
               <label class="spec-label">Crew size</label>
-              <select class="field appearance-none bg-[var(--bg-2)]">
+              <select name="crew_size" class="field appearance-none bg-[var(--bg-2)]">
                 <option>Just me</option>
                 <option>1–25</option>
                 <option>26–100</option>
@@ -992,21 +992,21 @@
 
           <div class="mb-2">
             <label class="spec-label">Email</label>
-            <input type="email" class="field" placeholder="you@email.com" />
+            <input type="email" name="email" class="field" placeholder="you@email.com" required />
           </div>
 
           <div class="mb-6">
             <label class="spec-label">Biggest HSE software frustration</label>
-            <textarea rows="3" class="field resize-none" placeholder="What does the existing stack get wrong on your job site?"></textarea>
+            <textarea name="frustration" rows="3" class="field resize-none" placeholder="What does the existing stack get wrong on your job site?"></textarea>
           </div>
 
-          <button type="button" class="btn-primary w-full py-3.5 rounded-sm text-[15px] inline-flex items-center justify-center gap-2">
+          <button type="submit" class="btn-primary w-full py-3.5 rounded-sm text-[15px] inline-flex items-center justify-center gap-2">
             Join the early access list
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
 
           <p class="mt-4 font-mono text-[10px] text-[var(--ink-3)] text-center tracking-wider">NO SPAM · NO DRIP · OCCASIONAL BUILD UPDATES</p>
-        </div>
+        </form>
       </div>
     </div>
   </div>
