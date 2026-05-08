@@ -183,6 +183,55 @@
         </button>
       </div>
 
+      <!-- Today's conditions (interview questions) -->
+      <div class="form-section" id="conditions-section">
+        <div class="section-head">
+          <span class="section-num font-mono">§ 00</span>
+          <h2 class="section-title">Today's conditions</h2>
+        </div>
+
+        <p class="section-blurb">
+          Quick questions about today's job. Your answers shape what shows up below.
+        </p>
+
+        <div class="interview-question">
+          <p class="interview-q-label">H2S potential on this well today?</p>
+          <div class="interview-options" data-question="h2s">
+            <button type="button" class="interview-chip" data-value="known">Known present</button>
+            <button type="button" class="interview-chip" data-value="suspected">Suspected</button>
+            <button type="button" class="interview-chip" data-value="none">Not present</button>
+          </div>
+        </div>
+
+        <div class="interview-question">
+          <p class="interview-q-label">New crew member on location today?</p>
+          <div class="interview-options" data-question="newcrew">
+            <button type="button" class="interview-chip" data-value="yes">Yes</button>
+            <button type="button" class="interview-chip" data-value="no">No</button>
+          </div>
+        </div>
+
+        <div class="interview-question">
+          <p class="interview-q-label">Weather concerns today?</p>
+          <p class="interview-q-hint">Multi-select. Tap any that apply.</p>
+          <div class="interview-options interview-multi" data-question="weather">
+            <button type="button" class="interview-chip" data-value="cold">Cold</button>
+            <button type="button" class="interview-chip" data-value="heat">Heat</button>
+            <button type="button" class="interview-chip" data-value="wind">Wind</button>
+            <button type="button" class="interview-chip" data-value="lightning">Lightning</button>
+            <button type="button" class="interview-chip" data-value="none">None</button>
+          </div>
+        </div>
+
+        <div class="interview-question">
+          <label class="field-group">
+            <span class="interview-q-label">Anything different from your last shift here?</span>
+            <span class="interview-q-hint">Optional. Free text.</span>
+            <textarea id="interview-different" class="field textarea" rows="2" placeholder="e.g., Sand cutter wear monitoring, new pad operator, generator swapped out."></textarea>
+          </label>
+        </div>
+      </div>
+
       <!-- Edit-only: Reason for revision -->
       <div id="revision-reason-section" class="form-section" hidden>
         <div class="section-head">
@@ -236,7 +285,7 @@
         </label>
 
         <label class="field-group">
-          <span class="spec-label">Muster point</span>
+          <span class="spec-label">Muster point <span class="spec-required">·  REQUIRED</span></span>
           <input type="text" id="jsa-muster" class="field" placeholder="e.g., NE corner of pad, by the lighting tower" />
         </label>
       </div>
@@ -417,6 +466,29 @@
 
 <!-- ============== TOAST ============== -->
 <div id="toast" class="toast" hidden></div>
+
+<!-- ============== PPE OVERRIDE MODAL ============== -->
+<div id="ppe-override-modal" class="modal-overlay" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <span class="spec-label rust">CORE PPE OVERRIDE</span>
+      <h3 class="modal-title" id="ppe-override-title">Hard hat is required for flowback work</h3>
+    </div>
+    <p class="modal-blurb" id="ppe-override-blurb">
+      OSHA and API guidance require this PPE for flowback operations. You can still uncheck it, but you need to document why it doesn't apply today.
+    </p>
+    <label class="field-group">
+      <span class="spec-label">Why is this not applicable today?</span>
+      <textarea id="ppe-override-reason" class="field textarea" rows="3" placeholder="e.g., Working remote on monitoring only, no entry to pressure work zone."></textarea>
+    </label>
+    <div class="modal-actions">
+      <button type="button" id="ppe-override-cancel" class="btn-ghost-sm">Keep checked</button>
+      <button type="button" id="ppe-override-confirm" class="btn-primary modal-confirm-btn">
+        <span class="btn-label">Confirm uncheck</span>
+      </button>
+    </div>
+  </div>
+</div>
 
 <!-- ============== LOADING OVERLAY ============== -->
 <div id="loading" class="loading-overlay">
