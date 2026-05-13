@@ -22,6 +22,8 @@ import {
   getDoc,
   query,
   orderBy,
+  where,
+  limit,
   serverTimestamp,
   updateDoc,
   arrayUnion,
@@ -224,6 +226,41 @@ const FLOWBACK_TEMPLATE = {
       text: "Defensive driving practices to and from location. Seatbelts in use. No phone while driving. Adequate rest before long drives.",
       type: "admin",
       elaboration: "Highway vehicle incidents are statistically the most dangerous part of the oilfield workday. About 40% of industry fatalities are vehicle-related. The drive matters as much as the work."
+    },
+    {
+      text: "H2S escape packs accessible to all personnel",
+      type: "eng",
+      elaboration: "Escape packs let workers reach safe air during an H2S release. Required when H2S is suspected or confirmed at Condition II or above. Must be accessible, not locked away."
+    },
+    {
+      text: "Oxygen resuscitator on location",
+      type: "eng",
+      elaboration: "Used for emergency response to H2S exposure. The oxygen resuscitator is part of API-recommended equipment for Condition II and above operations."
+    },
+    {
+      text: "Crew briefed on wind direction and muster point",
+      type: "admin",
+      elaboration: "H2S is heavier than air and drifts downwind. The muster point must be upwind of the source. Wind direction must be briefed before any sour gas operation and any time conditions change."
+    },
+    {
+      text: "Air-supplied respirator (SCBA) in use for personnel in work zone",
+      type: "eng",
+      elaboration: "Required at Condition III. SCBA provides a clean air supply when ambient atmosphere is above safe limits. No work in the zone without SCBA on, period."
+    },
+    {
+      text: "Dedicated H2S safety watch on duty",
+      type: "admin",
+      elaboration: "A second person watches the work zone, monitors gas readings, and is ready to respond to an incident. Required at Condition III."
+    },
+    {
+      text: "Written H2S emergency response plan reviewed and on location",
+      type: "admin",
+      elaboration: "Required at Condition III. The plan covers evacuation routes, rescue procedures, and emergency contacts. Reviewed before shift and physically on location."
+    },
+    {
+      text: "Posted warning signage at site entry points",
+      type: "admin",
+      elaboration: "Anyone approaching the location needs to know H2S is present. Signs at entry points warn drivers, vendors, and other crews before they're at risk."
     }
   ],
   ppe: [
@@ -300,7 +337,7 @@ const FLOWBACK_TEMPLATE = {
 // ============== TEMPLATE VERSION ==============
 // Bump when the template content changes. Stored on every JSA so we know
 // which version of the template a record was created against.
-const TEMPLATE_VERSION = "flowback-v0.3.0";
+const TEMPLATE_VERSION = "flowback-v0.4.0";
 
 // ============== H2S TIER CONFIG ==============
 // Industry-standard API Condition system. Drives the educational panel and
@@ -324,7 +361,7 @@ const H2S_TIERS = {
     range: "below 10 ppm",
     info: {
       title: "API Condition I · Routine operations",
-      body: "Industry-standard alarm setpoint per NIOSH is 10 ppm. If your monitor alarms, evacuate and reassess before re-entry. ACGIH short-term exposure limit is 5 ppm. Loss of smell begins around 100 ppm, so never rely on your nose."
+      body: "Industry-recognized 8-hour exposure limit is 10 ppm. Below this, no immediate physiological effects, but you may smell rotten eggs at concentrations as low as 1 ppm. Your monitor's alarm setpoint should be 10 ppm. If your monitor alarms, evacuate and reassess before re-entry. Never rely on your nose because olfactory paralysis kicks in around 100 ppm."
     },
     addControls: [],
     // Items here get flagged as required (uncheckable without override reason)
@@ -335,7 +372,7 @@ const H2S_TIERS = {
     range: "10 to 30 ppm",
     info: {
       title: "API Condition II · Moderate hazard",
-      body: "Industry-recognized 8-hour ceiling is 20 ppm. Continuous gas monitoring required. Escape pack must be accessible. Oxygen resuscitator on location per API. Headaches, nausea, and respiratory irritation can occur with prolonged exposure."
+      body: "Industry-recognized 8-hour exposure limit is 10 ppm. 15-minute short-term limit is 15 ppm. At 10-30 ppm you may not feel symptoms yet, but you're at the threshold where alarms trigger and escape equipment must be ready. Eye and throat irritation starts around 50 ppm. Continuous gas monitoring required, escape pack accessible, oxygen resuscitator on site."
     },
     addControls: [
       "H2S escape packs accessible to all personnel",
@@ -352,7 +389,7 @@ const H2S_TIERS = {
     range: "above 30 ppm",
     info: {
       title: "API Condition III · Emergency procedures in effect",
-      body: "NIOSH IDLH (Immediately Dangerous to Life and Health) is 100 ppm. Above 100 ppm in Texas, Railroad Commission notification required. SCBA in use for any person entering work zone. Written H2S emergency response plan must be reviewed and on location."
+      body: "NIOSH IDLH is 100 ppm. Above 30 ppm requires emergency procedures and SCBA for personnel in work zone. Physiological effects: coughing and headache at 100 ppm, vomiting and difficulty breathing at 250 ppm, loss of balance at 500 ppm, death within minutes above 750 ppm. Olfactory paralysis means you cannot smell H2S above approximately 100 ppm. Written H2S emergency response plan reviewed and on location."
     },
     addControls: [
       "H2S escape packs accessible to all personnel",
@@ -370,7 +407,165 @@ const H2S_TIERS = {
   }
 };
 
-// ============== FACTS LIBRARY ==============
+// ============== CONDITIONAL CONTENT ENGINE ==============
+// The JSA shows a standing core (always applies) plus conditional content
+// triggered by today's intake answers. This keeps the form short and focused
+// on what actually applies, while preserving full audit defensibility.
+//
+// Hazards/controls/PPE are referenced by their text from FLOWBACK_TEMPLATE.
+// The engine looks up the template item by text match at render time.
+const FLOWBACK_STANDING_CORE = {
+  // Hazards always shown regardless of intake answers
+  hazards: [
+    "High pressure lines and equipment failure",
+    "Trapped pressure / unexpected pressure release",
+    "Sand erosion and equipment failure",
+    "Hot surfaces (separator vessels, flow iron after flow)",
+    "Pinch points (hammer unions, valves, flow iron)",
+    "Struck-by (dropped equipment, swinging iron, pressure release)",
+    "Slips, trips, falls at ground level (icy catwalks, slick surfaces, hoses)",
+    "Chemical exposure (produced fluids, treatment chemicals)",
+    "Spill / environmental release",
+    "Heat / cold stress, fatigue (12-hour shifts)",
+    "Vehicle and commute hazards (driving to and from location)"
+  ],
+  // Controls always shown
+  controls: [
+    "Pre-job safety meeting completed and documented",
+    "Stop Work Authority communicated to all crew",
+    "All non-essential personnel kept clear of pressure work zones",
+    "Pressure verified at zero before any iron disconnection",
+    "Hammer unions properly seated and pinned",
+    "Lines restrained per operator spec",
+    "Bonding and grounding verified on all flowback equipment and vessels",
+    "Continuous gas monitoring (4-gas) at work area",
+    "Wind direction noted, briefing oriented to upwind muster",
+    "Spill kit on site and location communicated",
+    "Berms / secondary containment verified",
+    "Fire extinguishers staged and inspected",
+    "Communication plan (radio, hand signals) confirmed"
+  ],
+  // PPE always shown (most are core/required)
+  ppe: [
+    "Hard hat",
+    "Safety glasses (impact-rated)",
+    "FR coveralls or FR layered clothing",
+    "Steel-toe boots (lace-up, ANSI-rated)",
+    "Cut-resistant / impact gloves",
+    "Hearing protection (within 50 ft of flow iron)",
+    "Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)"
+  ]
+};
+
+// Conditional rules: each rule has a trigger (function returns true if applies)
+// and a list of hazards/controls/PPE to add when the rule fires. Rules check
+// the intake answers object: {h2s, work, weather, newcrew, different}.
+const CONDITIONAL_RULES = [
+  {
+    name: "h2s_cond1",
+    trigger: a => a.h2s === "cond1",
+    hazards:  ["H2S exposure (sour gas)", "Hydrocarbon vapor exposure (LEL / explosive atmosphere)", "Fire and explosion (ignition sources, static electricity)"],
+    controls: [],
+    ppe:      []
+  },
+  {
+    name: "h2s_cond2",
+    trigger: a => a.h2s === "cond2",
+    hazards:  ["H2S exposure (sour gas)", "Hydrocarbon vapor exposure (LEL / explosive atmosphere)", "Fire and explosion (ignition sources, static electricity)"],
+    controls: [
+      "H2S escape packs accessible to all personnel",
+      "Oxygen resuscitator on location",
+      "Crew briefed on wind direction and muster point"
+    ],
+    ppe:      ["H2S escape pack / SCBA available on site"]
+  },
+  {
+    name: "h2s_cond3",
+    trigger: a => a.h2s === "cond3",
+    hazards:  ["H2S exposure (sour gas)", "Hydrocarbon vapor exposure (LEL / explosive atmosphere)", "Fire and explosion (ignition sources, static electricity)"],
+    controls: [
+      "H2S escape packs accessible to all personnel",
+      "Oxygen resuscitator on location",
+      "Crew briefed on wind direction and muster point",
+      "Air-supplied respirator (SCBA) in use for personnel in work zone",
+      "Dedicated H2S safety watch on duty",
+      "Written H2S emergency response plan reviewed and on location",
+      "Posted warning signage at site entry points"
+    ],
+    ppe:      ["H2S escape pack / SCBA available on site"]
+  },
+  {
+    name: "maintenance",
+    trigger: a => Array.isArray(a.work) && a.work.includes("maintenance"),
+    hazards:  ["Stored energy release during maintenance (mechanical, electrical, hydraulic, pneumatic)"],
+    controls: ["Lockout/tagout applied to all energy sources before maintenance or iron change-out (mechanical, electrical, hydraulic, pneumatic)"],
+    ppe:      []
+  },
+  {
+    name: "heater_treater",
+    trigger: a => Array.isArray(a.work) && a.work.includes("heater_treater"),
+    hazards:  ["Hot work and ignition sources (heater treaters, welding, cutting, grinding)"],
+    controls: ["Heater treater ignition follows operator-specific procedure. Other hot work (welding, cutting, grinding) requires separate hot work permit and is not authorized under this JSA."],
+    ppe:      []
+  },
+  {
+    name: "elevation_sample",
+    trigger: a => Array.isArray(a.work) && a.work.includes("elevation_sample"),
+    hazards:  ["Falls from elevation (tanks, separator tops, elevated equipment)"],
+    controls: ["Guard rails inspected and intact on tanks, separators, and elevated walkways. Three points of contact on ladders. Stop work if any rail is damaged, missing, or unsafe."],
+    ppe:      []
+  },
+  {
+    name: "noise_emphasis",
+    // Flow iron noise applies to every flowback shift
+    trigger: () => true,
+    hazards:  ["Noise exposure (over 85 dB)"],
+    controls: [],
+    ppe:      []
+  },
+  {
+    name: "driving_emphasis",
+    trigger: () => true,
+    hazards:  [],
+    controls: ["Defensive driving practices to and from location. Seatbelts in use. No phone while driving. Adequate rest before long drives."],
+    ppe:      []
+  }
+];
+
+// Build the active content for this JSA based on intake answers.
+// Returns indices into FLOWBACK_TEMPLATE.hazards/controls/ppe arrays.
+function buildActiveContent(intakeAnswers) {
+  if (!currentTemplate) return { hazardIdxs: [], controlIdxs: [], ppeIdxs: [] };
+
+  const includedHazardTexts  = new Set(FLOWBACK_STANDING_CORE.hazards);
+  const includedControlTexts = new Set(FLOWBACK_STANDING_CORE.controls);
+  const includedPpeTexts     = new Set(FLOWBACK_STANDING_CORE.ppe);
+
+  // Apply conditional rules
+  CONDITIONAL_RULES.forEach(rule => {
+    if (rule.trigger(intakeAnswers)) {
+      rule.hazards.forEach(h => includedHazardTexts.add(h));
+      rule.controls.forEach(c => includedControlTexts.add(c));
+      rule.ppe.forEach(p => includedPpeTexts.add(p));
+    }
+  });
+
+  // Map text back to template indices
+  const hazardIdxs = [];
+  currentTemplate.hazards.forEach((h, idx) => {
+    if (includedHazardTexts.has(h.text)) hazardIdxs.push(idx);
+  });
+  const controlIdxs = [];
+  currentTemplate.controls.forEach((c, idx) => {
+    if (includedControlTexts.has(c.text)) controlIdxs.push(idx);
+  });
+  const ppeIdxs = [];
+  currentTemplate.ppe.forEach((p, idx) => {
+    if (includedPpeTexts.has(p.text)) ppeIdxs.push(idx);
+  });
+
+  return { hazardIdxs, controlIdxs, ppeIdxs };
+}
 // Shown in the banner at the top of the JSA form. Roughly even split between
 // trivia ("huh, didn't know that") and technical/process content (educational).
 // Scoped to flowback or broadly upstream. No role commentary, no characterizing
@@ -586,9 +781,10 @@ let detailDocId     = null;      // Currently-viewed JSA in the detail view
 
 // Interview question answers
 let interviewAnswers = {
-  h2s: null,           // "known" | "suspected" | "none"
+  h2s: null,           // "none" | "cond1" | "cond2" | "cond3"
+  work: [],            // multi-select: "routine" | "maintenance" | "heater_treater" | "elevation_sample" | "other"
   newcrew: null,       // "yes" | "no"
-  weather: [],         // array of "cold" | "heat" | "wind" | "lightning" | "none"
+  weather: [],         // multi-select including "visibility"
   different: ""        // free text
 };
 
@@ -712,7 +908,15 @@ function populateControlsList() {
   if (!currentTemplate) return;
   controlsList.className = "checkbox-list with-elaborations";
   controlsList.innerHTML = "";
+
+  // Get the active content indices for current intake answers
+  const active = buildActiveContent(interviewAnswers);
+  const activeControlIdxs = new Set(active.controlIdxs);
+
   currentTemplate.controls.forEach((c, idx) => {
+    // Skip controls not relevant to today's job
+    if (!activeControlIdxs.has(idx)) return;
+
     if (!(idx in controlsState)) {
       // Default unchecked. User must actively confirm each control applies.
       controlsState[idx] = { checked: false, overrideReason: null, expanded: false };
@@ -756,12 +960,25 @@ function populateControlsList() {
 }
 
 function populateStandardLists(template) {
-  // Pick one random hazard to show pre-expanded as anti-complacency nudge
-  pickHighlightedHazard();
+  // Pick one random hazard to show pre-expanded as anti-complacency nudge.
+  // Pick from the active set (only hazards shown today).
+  const active = buildActiveContent(interviewAnswers);
+  const activeHazardIdxs = new Set(active.hazardIdxs);
+  const activePpeIdxs    = new Set(active.ppeIdxs);
+
+  // Pick highlighted hazard from active set
+  if (active.hazardIdxs.length > 0) {
+    const randomActiveIdx = active.hazardIdxs[Math.floor(Math.random() * active.hazardIdxs.length)];
+    highlightedHazardIdx = randomActiveIdx;
+  } else {
+    highlightedHazardIdx = null;
+  }
 
   // Render hazards as tappable items with elaboration
   hazardsList.innerHTML = "";
   template.hazards.forEach((hazard, idx) => {
+    // Skip hazards not active for today's job
+    if (!activeHazardIdxs.has(idx)) return;
     const isHighlighted = idx === highlightedHazardIdx;
     const li = document.createElement("li");
     li.className = "hazard-item" + (isHighlighted ? " expanded" : "");
@@ -787,14 +1004,14 @@ function populateStandardLists(template) {
     hazardsList.appendChild(li);
   });
 
-  // Render controls as checkboxes (all start checked)
+  // Render controls as checkboxes (filtered to active set)
   populateControlsList();
 
-  // Render PPE as expandable checkbox rows. Default unchecked. User actively
-  // checks each item that applies. Core items must be checked to submit.
+  // Render PPE as expandable checkbox rows, filtered to active set
   ppeList.className = "checkbox-list with-elaborations";
   ppeList.innerHTML = "";
   template.ppe.forEach((p, idx) => {
+    if (!activePpeIdxs.has(idx)) return;
     if (!(idx in ppeState)) {
       ppeState[idx] = { checked: false, overrideReason: null, expanded: false };
     }
@@ -1147,45 +1364,14 @@ function escapeHtml(s) {
   }[m]));
 }
 
-// ============== COLLAPSIBLE SECTIONS ==============
-// Hazards, controls, and PPE start collapsed. User taps the header to expand.
+// ============== COLLAPSIBLE SECTIONS (legacy, no-op when not present) ==============
 function setupCollapsibles() {
-  const collapsibles = [
-    { headerId: "hazards-collapse-header",  listId: "hazards-list"  },
-    { headerId: "controls-collapse-header", listId: "controls-list" },
-    { headerId: "ppe-collapse-header",      listId: "ppe-list"      }
-  ];
-  collapsibles.forEach(({ headerId, listId }) => {
-    const header = document.getElementById(headerId);
-    const list = document.getElementById(listId);
-    if (!header || !list) return;
-    header.addEventListener("click", () => {
-      const expanded = header.getAttribute("aria-expanded") === "true";
-      const newState = !expanded;
-      header.setAttribute("aria-expanded", newState ? "true" : "false");
-      list.hidden = !newState;
-      header.classList.toggle("expanded", newState);
-    });
-  });
+  // Collapsible headers were removed in v0.4 since conditional content keeps
+  // the lists short naturally. Function kept as safe no-op.
 }
 
-// Update the count display on each collapse header
 function updateCollapseCounts() {
-  if (!currentTemplate) return;
-
-  const hazardCount = currentTemplate.hazards.length;
-  const hazardsCountEl = document.getElementById("hazards-collapse-count");
-  if (hazardsCountEl) hazardsCountEl.textContent = `${hazardCount} hazards`;
-
-  const ctlTotal = currentTemplate.controls.length;
-  const ctlChecked = Object.values(controlsState).filter(s => s.checked).length;
-  const ctlEl = document.getElementById("controls-collapse-count");
-  if (ctlEl) ctlEl.textContent = `${ctlChecked} of ${ctlTotal} checked`;
-
-  const ppeTotal = currentTemplate.ppe.length;
-  const ppeChecked = Object.values(ppeState).filter(s => s.checked).length;
-  const ppeEl = document.getElementById("ppe-collapse-count");
-  if (ppeEl) ppeEl.textContent = `${ppeChecked} of ${ppeTotal} checked`;
+  // Same as above; no-op.
 }
 
 // Initialize collapsibles on page load
@@ -1239,20 +1425,25 @@ document.querySelectorAll(".interview-options").forEach(group => {
         interviewAnswers[question] = value;
       }
 
-      // H2S tier triggers info panel + auto-marks PPE/controls
+      // H2S tier triggers info panel and re-renders content
       if (question === "h2s") {
         applyH2sTier(interviewAnswers.h2s);
+      }
+
+      // Any intake answer change re-renders the content lists to add or
+      // remove items based on the new answer set
+      if (currentTemplate) {
+        populateStandardLists(currentTemplate);
       }
     });
   });
 });
 
-// Render the H2S info panel and update controls/PPE based on tier
+// Render the H2S info panel. The content engine handles add/remove of items.
 function applyH2sTier(tierKey) {
   const tier = H2S_TIERS[tierKey];
   if (!tier) return;
 
-  // Update info panel
   if (h2sInfoPanel) {
     if (tier.info) {
       h2sInfoPanel.hidden = false;
@@ -1266,15 +1457,9 @@ function applyH2sTier(tierKey) {
       h2sInfoPanel.innerHTML = "";
     }
   }
-
-  // Apply control auto-marking. Add tier-specific controls to controlsState
-  // and the template snapshot only at submission time. For UI rendering, we
-  // dynamically inject these into the controls list as additional checked items.
-  refreshControlsForTier(tierKey);
-  refreshPpeRequirementsForTier(tierKey);
 }
 
-// Track tier-added controls separately so we can clean them up if tier changes
+// Tracking var kept for backward compatibility with edit-mode restore
 let tierAddedControls = [];
 
 function refreshControlsForTier(tierKey) {
@@ -1403,6 +1588,151 @@ captureGpsBtn.addEventListener("click", () => {
 // from the device, we save it to Firestore so other devices on this account benefit.
 const IPLOCATE_API_KEY = "6186e45569220b16fb537bd3056600eb";
 const HIGH_ACCURACY_THRESHOLD_M = 300;  // ~1000 ft, phone-GPS quality
+
+// ============== FAST-PATH LOCATION LOOKUP ==============
+// When the user types a location name, look up their recent JSAs at that
+// location. If a recent match (within 7 days) is found, pre-fill the form
+// with last shift's answers so the user can fast-confirm rather than
+// re-answering everything. The user can change anything that's different.
+let fastPathLookupTimer = null;
+let fastPathLastQueriedLocation = "";
+let fastPathActive = false;
+let fastPathSourceJsaDate = null;
+
+async function fastPathLookup(locationName) {
+  if (!currentUser) return;
+  const cleaned = locationName.trim();
+  if (!cleaned || cleaned.length < 3) return;
+  if (cleaned.toLowerCase() === fastPathLastQueriedLocation.toLowerCase()) return;
+  fastPathLastQueriedLocation = cleaned;
+
+  try {
+    const sevenDaysAgo = Timestamp.fromDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const jsasRef = collection(db, "users", currentUser.uid, "jsas");
+    // Note: querying with two range filters requires a composite index in Firestore.
+    // We avoid that by ordering on submittedAt and filtering client-side for location match.
+    const q = query(jsasRef, orderBy("submittedAt", "desc"), limit(10));
+    const snap = await getDocs(q);
+    let bestMatch = null;
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      if (!d.location) return;
+      // Case-insensitive location match
+      if (d.location.trim().toLowerCase() !== cleaned.toLowerCase()) return;
+      // Within 7-day window
+      if (!d.submittedAt || !d.submittedAt.toMillis) return;
+      if (d.submittedAt.toMillis() < sevenDaysAgo.toMillis()) return;
+      if (!bestMatch || d.submittedAt.toMillis() > bestMatch.submittedAt.toMillis()) {
+        bestMatch = d;
+      }
+    });
+    if (bestMatch) {
+      applyFastPath(bestMatch);
+    } else {
+      clearFastPathIndicator();
+    }
+  } catch (err) {
+    console.warn("Fast-path lookup failed:", err);
+  }
+}
+
+function applyFastPath(priorJsa) {
+  // Pre-fill the intake answers from the prior JSA
+  if (priorJsa.conditions) {
+    if (priorJsa.conditions.h2s) {
+      interviewAnswers.h2s = priorJsa.conditions.h2s;
+      const chip = document.querySelector(`.interview-options[data-question="h2s"] .interview-chip[data-value="${priorJsa.conditions.h2s}"]`);
+      if (chip) {
+        document.querySelectorAll('.interview-options[data-question="h2s"] .interview-chip').forEach(c => c.classList.remove("selected"));
+        chip.classList.add("selected");
+      }
+      applyH2sTier(priorJsa.conditions.h2s);
+    }
+    if (Array.isArray(priorJsa.conditions.work)) {
+      interviewAnswers.work = [...priorJsa.conditions.work];
+      document.querySelectorAll('.interview-options[data-question="work"] .interview-chip').forEach(c => {
+        if (priorJsa.conditions.work.includes(c.dataset.value)) c.classList.add("selected");
+        else c.classList.remove("selected");
+      });
+    }
+    if (priorJsa.conditions.newCrew) {
+      interviewAnswers.newcrew = priorJsa.conditions.newCrew;
+      const chip = document.querySelector(`.interview-options[data-question="newcrew"] .interview-chip[data-value="${priorJsa.conditions.newCrew}"]`);
+      if (chip) {
+        document.querySelectorAll('.interview-options[data-question="newcrew"] .interview-chip').forEach(c => c.classList.remove("selected"));
+        chip.classList.add("selected");
+      }
+    }
+    if (Array.isArray(priorJsa.conditions.weather)) {
+      interviewAnswers.weather = [...priorJsa.conditions.weather];
+      document.querySelectorAll('.interview-options[data-question="weather"] .interview-chip').forEach(c => {
+        if (priorJsa.conditions.weather.includes(c.dataset.value)) c.classList.add("selected");
+        else c.classList.remove("selected");
+      });
+    }
+  }
+
+  // Pre-fill other useful fields the user might want to keep
+  if (priorJsa.musterPoint && !jsaMuster.value.trim()) {
+    jsaMuster.value = priorJsa.musterPoint;
+  }
+  if (priorJsa.emergencyInfo) {
+    if (jsaEmergencyPhone && priorJsa.emergencyInfo.contactNumbers && !jsaEmergencyPhone.value.trim()) {
+      jsaEmergencyPhone.value = priorJsa.emergencyInfo.contactNumbers;
+    }
+    if (jsaFirstAidLoc && priorJsa.emergencyInfo.firstAidLocation && !jsaFirstAidLoc.value.trim()) {
+      jsaFirstAidLoc.value = priorJsa.emergencyInfo.firstAidLocation;
+    }
+    if (jsaAedLoc && priorJsa.emergencyInfo.aedLocation && !jsaAedLoc.value.trim()) {
+      jsaAedLoc.value = priorJsa.emergencyInfo.aedLocation;
+    }
+    if (jsaWindsockLoc && priorJsa.emergencyInfo.windsockLocation && !jsaWindsockLoc.value.trim()) {
+      jsaWindsockLoc.value = priorJsa.emergencyInfo.windsockLocation;
+    }
+    if (jsaHeloLz && priorJsa.emergencyInfo.helicopterLz && !jsaHeloLz.value.trim()) {
+      jsaHeloLz.value = priorJsa.emergencyInfo.helicopterLz;
+    }
+  }
+
+  // Re-render content lists with the pre-filled answers
+  if (currentTemplate) {
+    populateStandardLists(currentTemplate);
+  }
+
+  // Show the pre-fill indicator
+  fastPathActive = true;
+  fastPathSourceJsaDate = priorJsa.submittedAt && priorJsa.submittedAt.toDate
+    ? priorJsa.submittedAt.toDate()
+    : null;
+  const indicator = document.getElementById("prefill-indicator");
+  const detail = document.getElementById("prefill-detail");
+  if (indicator && detail) {
+    indicator.hidden = false;
+    detail.textContent = fastPathSourceJsaDate
+      ? `Today's conditions and crew info pre-filled from your JSA on ${fastPathSourceJsaDate.toLocaleDateString()}. Tap any chip to change.`
+      : "Today's conditions pre-filled from your last shift. Tap any chip to change.";
+  }
+}
+
+function clearFastPathIndicator() {
+  fastPathActive = false;
+  fastPathSourceJsaDate = null;
+  const indicator = document.getElementById("prefill-indicator");
+  if (indicator) indicator.hidden = true;
+}
+
+// Wire up the location field to trigger fast-path lookup on blur/debounced input
+if (jsaLocation) {
+  jsaLocation.addEventListener("blur", () => {
+    fastPathLookup(jsaLocation.value);
+  });
+  jsaLocation.addEventListener("input", () => {
+    clearTimeout(fastPathLookupTimer);
+    fastPathLookupTimer = setTimeout(() => {
+      fastPathLookup(jsaLocation.value);
+    }, 800);
+  });
+}
 
 function autoCaptureGps() {
   if (capturedGps) return; // Already captured (e.g. in edit mode)
@@ -1881,6 +2211,11 @@ submitJsaBtn.addEventListener("click", async () => {
     document.getElementById("conditions-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
+  if (!Array.isArray(interviewAnswers.work) || interviewAnswers.work.length === 0) {
+    showToast("Answer the 'what work today' question in Today's conditions", "error");
+    document.getElementById("conditions-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
   if (!interviewAnswers.newcrew) {
     showToast("Answer the new crew question in Today's conditions", "error");
     document.getElementById("conditions-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2118,6 +2453,7 @@ function buildJsaRecord({ location }) {
     // Today's conditions (interview answers)
     conditions: {
       h2s:       interviewAnswers.h2s,
+      work:      interviewAnswers.work,
       newCrew:   interviewAnswers.newcrew,
       weather:   interviewAnswers.weather,
       different: interviewAnswers.different || ""
@@ -2139,11 +2475,20 @@ function buildJsaRecord({ location }) {
     // Crew signatures
     signedCrew:     [...signedCrew],
 
+    // Fast-path tracking (was this JSA pre-filled from a prior shift?)
+    fastPathUsed:           fastPathActive,
+    fastPathSourceJsaDate:  fastPathSourceJsaDate ? fastPathSourceJsaDate.toISOString() : null,
+
+    // Active content snapshot: which hazards/controls/PPE were shown to the
+    // user based on their intake answers. Captured so the audit trail shows
+    // exactly what was on this JSA, not just the master template.
+    activeContent:  buildActiveContent(interviewAnswers),
+
     // Audit trail (server-side, can't be faked client-side)
     createdAt:      serverTimestamp(),
     submittedAt:    serverTimestamp(),
     revisionCount:  0,
-    schemaVersion:  2
+    schemaVersion:  3
   };
 }
 
@@ -2315,6 +2660,7 @@ function openJsaForEdit(docId, data) {
   // Restore interview answers
   if (data.conditions) {
     interviewAnswers.h2s = data.conditions.h2s || null;
+    interviewAnswers.work = Array.isArray(data.conditions.work) ? [...data.conditions.work] : [];
     interviewAnswers.newcrew = data.conditions.newCrew || null;
     interviewAnswers.weather = Array.isArray(data.conditions.weather) ? [...data.conditions.weather] : [];
     interviewAnswers.different = data.conditions.different || "";
@@ -2827,11 +3173,19 @@ function resetJsaForm() {
   // Reset interview answers
   interviewAnswers = {
     h2s: null,
+    work: [],
     newcrew: null,
     weather: [],
     different: ""
   };
   document.querySelectorAll(".interview-chip.selected").forEach(c => c.classList.remove("selected"));
+
+  // Reset fast-path state
+  fastPathActive = false;
+  fastPathSourceJsaDate = null;
+  fastPathLastQueriedLocation = "";
+  const indicator = document.getElementById("prefill-indicator");
+  if (indicator) indicator.hidden = true;
 
   // Reset PPE/controls state (will be re-initialized by populateStandardLists)
   ppeState = {};
