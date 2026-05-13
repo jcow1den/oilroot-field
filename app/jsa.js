@@ -356,23 +356,22 @@ const H2S_TIERS = {
     addControls: [],
     requirePpe: []
   },
-  cond1: {
-    label: "Condition I",
+  trace: {
+    label: "Trace, monitor only",
     range: "below 10 ppm",
     info: {
-      title: "API Condition I · Routine operations",
-      body: "Industry-recognized 8-hour exposure limit is 10 ppm. Below this, no immediate physiological effects, but you may smell rotten eggs at concentrations as low as 1 ppm. Your monitor's alarm setpoint should be 10 ppm. If your monitor alarms, evacuate and reassess before re-entry. Never rely on your nose because olfactory paralysis kicks in around 100 ppm."
+      title: "Trace · Monitor only",
+      body: "Below 10 ppm. You might smell rotten eggs at concentrations as low as 1 ppm. No physical effects yet. Keep your personal monitor on and clipped within 6 inches of your breathing zone. Alarm setpoint is 10 ppm. Never rely on your nose because olfactory paralysis kicks in at 100 ppm."
     },
     addControls: [],
-    // Items here get flagged as required (uncheckable without override reason)
     requirePpe: ["Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)"]
   },
-  cond2: {
-    label: "Condition II",
-    range: "10 to 30 ppm",
+  caution: {
+    label: "Caution, alarm range",
+    range: "10 to 50 ppm",
     info: {
-      title: "API Condition II · Moderate hazard",
-      body: "Industry-recognized 8-hour exposure limit is 10 ppm. 15-minute short-term limit is 15 ppm. At 10-30 ppm you may not feel symptoms yet, but you're at the threshold where alarms trigger and escape equipment must be ready. Eye and throat irritation starts around 50 ppm. Continuous gas monitoring required, escape pack accessible, oxygen resuscitator on site."
+      title: "Caution · Alarm range",
+      body: "10 to 50 ppm. Monitors will alarm at 10 ppm. Still no physical symptoms but you're at the threshold. Continuous gas monitoring required. Escape pack accessible. Crew briefed on wind direction and muster point. Oxygen resuscitator on location."
     },
     addControls: [
       "H2S escape packs accessible to all personnel",
@@ -384,12 +383,32 @@ const H2S_TIERS = {
       "H2S escape pack / SCBA available on site"
     ]
   },
-  cond3: {
-    label: "Condition III",
-    range: "above 30 ppm",
+  danger: {
+    label: "Danger, physical effects",
+    range: "50 to 100 ppm",
     info: {
-      title: "API Condition III · Emergency procedures in effect",
-      body: "NIOSH IDLH is 100 ppm. Above 30 ppm requires emergency procedures and SCBA for personnel in work zone. Physiological effects: coughing and headache at 100 ppm, vomiting and difficulty breathing at 250 ppm, loss of balance at 500 ppm, death within minutes above 750 ppm. Olfactory paralysis means you cannot smell H2S above approximately 100 ppm. Written H2S emergency response plan reviewed and on location."
+      title: "Danger · Physical effects",
+      body: "50 to 100 ppm. Eye and throat irritation starts at 50 ppm. Coughing and headache start at 100 ppm. You will lose your sense of smell at 100 ppm. SCBA required for any work in the zone. Dedicated H2S safety watch on duty. Written H2S emergency response plan on location."
+    },
+    addControls: [
+      "H2S escape packs accessible to all personnel",
+      "Oxygen resuscitator on location",
+      "Crew briefed on wind direction and muster point",
+      "Air-supplied respirator (SCBA) in use for personnel in work zone",
+      "Dedicated H2S safety watch on duty",
+      "Written H2S emergency response plan reviewed and on location"
+    ],
+    requirePpe: [
+      "Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)",
+      "H2S escape pack / SCBA available on site"
+    ]
+  },
+  severe: {
+    label: "Severe, evacuate",
+    range: "above 100 ppm",
+    info: {
+      title: "Severe · Evacuate",
+      body: "NIOSH IDLH (Immediately Dangerous to Life and Health) is 100 ppm. Vomiting and difficulty breathing at 250 ppm. Loss of balance at 500 ppm. Death within minutes above 750 ppm. Full evacuation. Written emergency response plan invoked. No work without SCBA and direct approval. Posted warning signage at all site entry points."
     },
     addControls: [
       "H2S escape packs accessible to all personnel",
@@ -462,15 +481,15 @@ const FLOWBACK_STANDING_CORE = {
 // the intake answers object: {h2s, work, weather, newcrew, different}.
 const CONDITIONAL_RULES = [
   {
-    name: "h2s_cond1",
-    trigger: a => a.h2s === "cond1",
+    name: "h2s_trace",
+    trigger: a => a.h2s === "trace",
     hazards:  ["H2S exposure (sour gas)", "Hydrocarbon vapor exposure (LEL / explosive atmosphere)", "Fire and explosion (ignition sources, static electricity)"],
     controls: [],
     ppe:      []
   },
   {
-    name: "h2s_cond2",
-    trigger: a => a.h2s === "cond2",
+    name: "h2s_caution",
+    trigger: a => a.h2s === "caution",
     hazards:  ["H2S exposure (sour gas)", "Hydrocarbon vapor exposure (LEL / explosive atmosphere)", "Fire and explosion (ignition sources, static electricity)"],
     controls: [
       "H2S escape packs accessible to all personnel",
@@ -480,8 +499,22 @@ const CONDITIONAL_RULES = [
     ppe:      ["H2S escape pack / SCBA available on site"]
   },
   {
-    name: "h2s_cond3",
-    trigger: a => a.h2s === "cond3",
+    name: "h2s_danger",
+    trigger: a => a.h2s === "danger",
+    hazards:  ["H2S exposure (sour gas)", "Hydrocarbon vapor exposure (LEL / explosive atmosphere)", "Fire and explosion (ignition sources, static electricity)"],
+    controls: [
+      "H2S escape packs accessible to all personnel",
+      "Oxygen resuscitator on location",
+      "Crew briefed on wind direction and muster point",
+      "Air-supplied respirator (SCBA) in use for personnel in work zone",
+      "Dedicated H2S safety watch on duty",
+      "Written H2S emergency response plan reviewed and on location"
+    ],
+    ppe:      ["H2S escape pack / SCBA available on site"]
+  },
+  {
+    name: "h2s_severe",
+    trigger: a => a.h2s === "severe",
     hazards:  ["H2S exposure (sour gas)", "Hydrocarbon vapor exposure (LEL / explosive atmosphere)", "Fire and explosion (ignition sources, static electricity)"],
     controls: [
       "H2S escape packs accessible to all personnel",
@@ -517,7 +550,6 @@ const CONDITIONAL_RULES = [
   },
   {
     name: "noise_emphasis",
-    // Flow iron noise applies to every flowback shift
     trigger: () => true,
     hazards:  ["Noise exposure (over 85 dB)"],
     controls: [],
@@ -1447,7 +1479,7 @@ function applyH2sTier(tierKey) {
   if (h2sInfoPanel) {
     if (tier.info) {
       h2sInfoPanel.hidden = false;
-      h2sInfoPanel.className = "h2s-info-panel " + (tierKey === "cond3" ? "cond-3" : tierKey === "cond2" ? "cond-2" : "");
+      h2sInfoPanel.className = "h2s-info-panel " + (tierKey === "severe" ? "cond-3" : tierKey === "danger" ? "cond-3" : tierKey === "caution" ? "cond-2" : "");
       h2sInfoPanel.innerHTML = `
         <span class="h2s-info-panel-label">${escapeHtml(tier.info.title)}</span>
         <p class="h2s-info-panel-body">${escapeHtml(tier.info.body)}</p>
@@ -2819,13 +2851,18 @@ function renderDetailView(data) {
   // Section: Today's conditions (interview answers)
   if (data.conditions) {
     const c = data.conditions;
-    // H2S label supports both new tier system and legacy answers
+    // H2S label supports new severity tiers and legacy condition system
     const h2sLabels = {
       "none":      "Not present",
+      // New severity-based tiers
+      "trace":     "Trace, monitor only (below 10 ppm)",
+      "caution":   "Caution, alarm range (10 to 50 ppm)",
+      "danger":    "Danger, physical effects (50 to 100 ppm)",
+      "severe":    "Severe, evacuate (above 100 ppm)",
+      // Legacy API Condition tiers (pre-v0.4.0 records)
       "cond1":     "Condition I (below 10 ppm)",
       "cond2":     "Condition II (10 to 30 ppm)",
       "cond3":     "Condition III (above 30 ppm)",
-      // Legacy
       "known":     "Known present",
       "suspected": "Suspected"
     };
