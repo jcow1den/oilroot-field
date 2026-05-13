@@ -352,6 +352,13 @@ const ppeOverrideTitle      = document.getElementById("ppe-override-title");
 const ppeOverrideReason     = document.getElementById("ppe-override-reason");
 const ppeOverrideCancel     = document.getElementById("ppe-override-cancel");
 const ppeOverrideConfirm    = document.getElementById("ppe-override-confirm");
+const crewSignedList        = document.getElementById("crew-signed-list");
+const crewNameInput         = document.getElementById("crew-name");
+const crewSwaCheckbox       = document.getElementById("crew-swa");
+const signaturePad          = document.getElementById("signature-pad");
+const signatureClearBtn     = document.getElementById("signature-clear");
+const signatureHint         = document.getElementById("signature-hint");
+const addCrewBtn            = document.getElementById("add-crew-btn");
 
 const pastJsasList   = document.getElementById("past-jsas-list");
 const pastJsasCount  = document.getElementById("past-jsas-count");
@@ -388,6 +395,9 @@ let interviewAnswers = {
 // Maps item index to {checked: bool, overrideReason: string|null}
 let ppeState = {};      // {0: {checked: true, overrideReason: null}, ...}
 let controlsState = {}; // same shape
+
+// Signed crew members. Array of {name, swaAcknowledged, signatureDataUrl, signedAt}
+let signedCrew = [];
 
 // ============== VIEW NAVIGATION ==============
 let viewStack = ["home"];
@@ -489,6 +499,9 @@ function openJsaForm(job) {
   jsaTimeInput.value = `${hh}:${mm}`;
 
   navigateTo("jsa-form");
+
+  // Initialize the signature pad now that the form is visible (canvas needs to be in DOM with measurable dimensions)
+  setTimeout(initSignaturePad, 50);
 
   // Auto-capture GPS in the background after view transition
   setTimeout(autoCaptureGps, 500);
@@ -663,6 +676,185 @@ if (ppeOverrideConfirm) {
       pendingOverrideOnConfirm();
     }
     closePpeOverrideModal();
+  });
+}
+
+// ============== SIGNATURE PAD ==============
+// Capture handwritten signatures on the canvas. Works for both mouse and touch.
+let sigCtx = null;
+let sigDrawing = false;
+let sigHasInk = false;  // true if any stroke has been drawn
+
+function initSignaturePad() {
+  if (!signaturePad) return;
+  // Size the canvas to its CSS width so drawing matches the visible area
+  resizeSignaturePad();
+  sigCtx = signaturePad.getContext("2d");
+  sigCtx.strokeStyle = "#0a0a0a";
+  sigCtx.lineWidth = 2;
+  sigCtx.lineCap = "round";
+  sigCtx.lineJoin = "round";
+  sigHasInk = false;
+
+  // Mouse events
+  signaturePad.addEventListener("mousedown", sigStart);
+  signaturePad.addEventListener("mousemove", sigMove);
+  signaturePad.addEventListener("mouseup",   sigEnd);
+  signaturePad.addEventListener("mouseleave", sigEnd);
+
+  // Touch events
+  signaturePad.addEventListener("touchstart", sigStart, { passive: false });
+  signaturePad.addEventListener("touchmove",  sigMove,  { passive: false });
+  signaturePad.addEventListener("touchend",   sigEnd);
+  signaturePad.addEventListener("touchcancel", sigEnd);
+}
+
+function resizeSignaturePad() {
+  if (!signaturePad) return;
+  const rect = signaturePad.getBoundingClientRect();
+  // Use a higher internal resolution for crisp lines
+  const ratio = window.devicePixelRatio || 1;
+  signaturePad.width  = rect.width * ratio;
+  signaturePad.height = rect.height * ratio;
+  if (sigCtx) {
+    sigCtx.scale(ratio, ratio);
+    sigCtx.strokeStyle = "#0a0a0a";
+    sigCtx.lineWidth = 2;
+    sigCtx.lineCap = "round";
+    sigCtx.lineJoin = "round";
+  }
+}
+
+function sigGetXY(e) {
+  const rect = signaturePad.getBoundingClientRect();
+  let clientX, clientY;
+  if (e.touches && e.touches[0]) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function sigStart(e) {
+  e.preventDefault();
+  if (!sigCtx) return;
+  sigDrawing = true;
+  const { x, y } = sigGetXY(e);
+  sigCtx.beginPath();
+  sigCtx.moveTo(x, y);
+}
+
+function sigMove(e) {
+  if (!sigDrawing || !sigCtx) return;
+  e.preventDefault();
+  const { x, y } = sigGetXY(e);
+  sigCtx.lineTo(x, y);
+  sigCtx.stroke();
+  sigHasInk = true;
+  if (signatureHint) signatureHint.style.opacity = "0";
+}
+
+function sigEnd(e) {
+  if (!sigDrawing) return;
+  sigDrawing = false;
+  if (sigCtx) sigCtx.closePath();
+}
+
+function sigClear() {
+  if (!sigCtx || !signaturePad) return;
+  sigCtx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+  sigHasInk = false;
+  if (signatureHint) signatureHint.style.opacity = "";
+}
+
+if (signatureClearBtn) {
+  signatureClearBtn.addEventListener("click", sigClear);
+}
+
+// Re-size canvas if the window resizes (rotation, etc.)
+window.addEventListener("resize", () => {
+  // Only re-size if the canvas is currently visible
+  if (signaturePad && signaturePad.offsetParent !== null) {
+    // Preserve existing ink by capturing as data URL, clearing, and redrawing
+    const dataUrl = sigHasInk ? signaturePad.toDataURL() : null;
+    resizeSignaturePad();
+    if (dataUrl) {
+      const img = new Image();
+      img.onload = () => sigCtx.drawImage(img, 0, 0, signaturePad.getBoundingClientRect().width, signaturePad.getBoundingClientRect().height);
+      img.src = dataUrl;
+    }
+  }
+});
+
+// ============== ADD CREW MEMBER ==============
+if (addCrewBtn) {
+  addCrewBtn.addEventListener("click", () => {
+    const name = (crewNameInput.value || "").trim();
+    if (!name) {
+      showToast("Enter the crew member's name", "error");
+      crewNameInput.focus();
+      return;
+    }
+    if (!crewSwaCheckbox.checked) {
+      showToast("Stop Work Authority acknowledgment is required", "error");
+      crewSwaCheckbox.focus();
+      return;
+    }
+    if (!sigHasInk) {
+      showToast("Signature is required", "error");
+      return;
+    }
+
+    // Capture the signature as a data URL
+    const signatureDataUrl = signaturePad.toDataURL("image/png");
+
+    signedCrew.push({
+      name,
+      swaAcknowledged: true,
+      signatureDataUrl,
+      signedAt: new Date().toISOString()
+    });
+
+    renderSignedCrew();
+    resetCrewAddForm();
+    showToast(`${name} added`, "success");
+  });
+}
+
+function resetCrewAddForm() {
+  if (crewNameInput) crewNameInput.value = "";
+  if (crewSwaCheckbox) crewSwaCheckbox.checked = false;
+  sigClear();
+}
+
+function renderSignedCrew() {
+  if (!crewSignedList) return;
+  crewSignedList.innerHTML = "";
+  signedCrew.forEach((c, idx) => {
+    const item = document.createElement("div");
+    item.className = "crew-signed-item";
+    const timeLabel = c.signedAt ? new Date(c.signedAt).toLocaleString() : "—";
+    item.innerHTML = `
+      <div class="crew-signed-head">
+        <span class="crew-signed-name">${escapeHtml(c.name)}</span>
+        <button type="button" class="crew-signed-remove" data-idx="${idx}">Remove</button>
+      </div>
+      <div class="crew-signed-sig">
+        <img alt="Signature of ${escapeHtml(c.name)}" src="${c.signatureDataUrl}" />
+      </div>
+      <div class="crew-signed-head">
+        <span class="crew-signed-swa">✓ STOP WORK AUTHORITY ACKNOWLEDGED</span>
+        <span class="crew-signed-time">${escapeHtml(timeLabel)}</span>
+      </div>
+    `;
+    item.querySelector(".crew-signed-remove").addEventListener("click", () => {
+      signedCrew.splice(idx, 1);
+      renderSignedCrew();
+    });
+    crewSignedList.appendChild(item);
   });
 }
 
@@ -1226,13 +1418,17 @@ submitJsaBtn.addEventListener("click", async () => {
     document.getElementById("conditions-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
-  if (!isStandardConfirmed && !exceptionFlagged) {
+  if (isStandardConfirmed === false && exceptionFlagged === false) {
     showToast("Confirm standard items, or flag an exception, before submitting", "error");
     return;
   }
   if (exceptionFlagged && !exceptionText.value.trim()) {
     showToast("Describe what's different from standard, or untick the exception", "error");
     exceptionText.focus();
+    return;
+  }
+  if (signedCrew.length === 0) {
+    showToast("At least one crew member must sign the JSA before submitting", "error");
     return;
   }
 
@@ -1343,7 +1539,8 @@ function snapshotPriorState(data) {
     todayDifferent:       data.todayDifferent,
     stopWork:             data.stopWork,
     routineTaskAcknowledged: data.routineTaskAcknowledged,
-    customTasks:          data.customTasks
+    customTasks:          data.customTasks,
+    signedCrew:           data.signedCrew || []
   };
 }
 
@@ -1404,6 +1601,9 @@ function buildJsaRecord({ location }) {
     // Tasks
     routineTaskAcknowledged: !!taskRoutine.checked,
     customTasks:    gatherCustomTasks(),
+
+    // Crew signatures
+    signedCrew:     [...signedCrew],
 
     // Audit trail (server-side, can't be faked client-side)
     createdAt:      serverTimestamp(),
@@ -1648,7 +1848,16 @@ function openJsaForEdit(docId, data) {
     });
   }
 
+  // Restore signed crew so their signatures carry through the revision
+  if (Array.isArray(data.signedCrew)) {
+    signedCrew = data.signedCrew.map(c => ({ ...c }));
+    renderSignedCrew();
+  }
+
   navigateTo("jsa-form");
+
+  // Initialize signature pad after view becomes visible
+  setTimeout(initSignaturePad, 50);
 }
 
 function renderDetailView(data) {
@@ -1893,6 +2102,36 @@ function renderDetailView(data) {
   tasksSection += `</div>`;
   sections.push(tasksSection);
 
+  // Crew signatures section
+  if (Array.isArray(data.signedCrew) && data.signedCrew.length) {
+    let crewSection = `
+      <div class="detail-section">
+        <div class="detail-section-head">
+          <span class="detail-section-num">§ 09</span>
+          <h3 class="detail-section-title">Crew &amp; signatures (${data.signedCrew.length})</h3>
+        </div>
+    `;
+    data.signedCrew.forEach(c => {
+      const timeLabel = c.signedAt ? new Date(c.signedAt).toLocaleString() : "—";
+      crewSection += `
+        <div class="detail-signature-item">
+          <div class="crew-signed-head">
+            <span class="crew-signed-name">${escapeHtml(c.name || "—")}</span>
+            <span class="crew-signed-time">${escapeHtml(timeLabel)}</span>
+          </div>
+          ${c.signatureDataUrl ? `
+            <div class="detail-signature-img">
+              <img alt="Signature" src="${c.signatureDataUrl}" />
+            </div>
+          ` : ""}
+          ${c.swaAcknowledged ? `<span class="crew-signed-swa">✓ STOP WORK AUTHORITY ACKNOWLEDGED</span>` : ""}
+        </div>
+      `;
+    });
+    crewSection += `</div>`;
+    sections.push(crewSection);
+  }
+
   // Section 05: Audit trail
   const submittedAtLabel = data.submittedAt && data.submittedAt.toDate
     ? data.submittedAt.toDate().toLocaleString()
@@ -2014,6 +2253,11 @@ function resetJsaForm() {
   // Reset PPE/controls state (will be re-initialized by populateStandardLists)
   ppeState = {};
   controlsState = {};
+
+  // Reset signed crew
+  signedCrew = [];
+  renderSignedCrew();
+  resetCrewAddForm();
 }
 
 // ============== TOAST ==============
