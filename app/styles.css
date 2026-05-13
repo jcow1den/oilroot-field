@@ -2265,6 +2265,102 @@ html, body {
   transform: rotate(90deg);
 }
 
+/* ============== ADMIN UI ============== */
+.admin-view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 24px;
+  padding: 8px 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.admin-view-toggle:hover {
+  border-color: var(--ink-2);
+}
+
+.admin-view-toggle.admin-view-active {
+  border-color: var(--rust-bright);
+  color: var(--ink);
+  background: rgba(234, 88, 12, 0.05);
+}
+
+.admin-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  padding: 2px 6px;
+  background: var(--rust-bright);
+  color: var(--bg);
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+.admin-toggle-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+
+.admin-card .admin-owner-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  background: rgba(217, 119, 6, 0.12);
+  color: var(--amber);
+  border-radius: 2px;
+  margin-bottom: 4px;
+}
+
+.admin-viewing-banner {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: rgba(234, 88, 12, 0.08);
+  border-left: 2px solid var(--rust-bright);
+  border-radius: 0 4px 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-viewing-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.admin-edited-banner {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: rgba(217, 119, 6, 0.08);
+  border-left: 2px solid var(--amber);
+  border-radius: 0 4px 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-edited-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+}
+
+.admin-edited-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
 /* ============== ACKNOWLEDGMENT CARDS (3-ack §02 structure) ============== */
 .ack-card {
   margin-top: 12px;
