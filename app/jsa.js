@@ -178,6 +178,76 @@ const FLOWBACK_TEMPLATE = {
 // which version of the template a record was created against.
 const TEMPLATE_VERSION = "flowback-v0.1.0";
 
+// ============== H2S TIER CONFIG ==============
+// Industry-standard API Condition system. Drives the educational panel and
+// the auto-marking of PPE and controls on the JSA form.
+//
+// Sources: OSHA general industry standard (29 CFR 1910.1000 Table Z-2),
+// OSHA construction standard (29 CFR 1926.55 Appendix A),
+// NIOSH IDLH (100 ppm), NIOSH REL (10 ppm),
+// API onshore/offshore RP guidance, and operator policies including
+// Devon, BP, and similar majors.
+//
+// Edit thresholds or wording here; the form rerenders accordingly.
+const H2S_TIERS = {
+  none: {
+    label: "Not present",
+    range: "verified by recent monitoring",
+    info: null,
+    addControls: [],
+    requirePpe: []
+  },
+  cond1: {
+    label: "Condition I",
+    range: "below 10 ppm",
+    info: {
+      title: "API Condition I · Routine operations",
+      body: "Industry-standard alarm setpoint per NIOSH is 10 ppm. If your monitor alarms, evacuate and reassess before re-entry. ACGIH short-term exposure limit is 5 ppm. Loss of smell begins around 100 ppm, so never rely on your nose."
+    },
+    addControls: [],
+    // Items here get flagged as required (uncheckable without override reason)
+    requirePpe: ["Personal 4-gas monitor (O2, LEL, H2S, CO)"]
+  },
+  cond2: {
+    label: "Condition II",
+    range: "10 to 30 ppm",
+    info: {
+      title: "API Condition II · Moderate hazard",
+      body: "OSHA general industry ceiling is 20 ppm. Continuous gas monitoring required. Escape pack must be accessible. Oxygen resuscitator on location per API. Headaches, nausea, and respiratory irritation can occur with prolonged exposure."
+    },
+    addControls: [
+      "H2S escape packs accessible to all personnel",
+      "Oxygen resuscitator on location",
+      "Crew briefed on wind direction and muster point"
+    ],
+    requirePpe: [
+      "Personal 4-gas monitor (O2, LEL, H2S, CO)",
+      "H2S escape pack / SCBA available on site"
+    ]
+  },
+  cond3: {
+    label: "Condition III",
+    range: "above 30 ppm",
+    info: {
+      title: "API Condition III · Emergency procedures in effect",
+      body: "NIOSH IDLH (Immediately Dangerous to Life and Health) is 100 ppm. Above 100 ppm in Texas, Railroad Commission notification required. SCBA in use for any person entering work zone. Written H2S emergency response plan must be reviewed and on location."
+    },
+    addControls: [
+      "H2S escape packs accessible to all personnel",
+      "Oxygen resuscitator on location",
+      "Crew briefed on wind direction and muster point",
+      "Air-supplied respirator (SCBA) in use for personnel in work zone",
+      "Dedicated H2S safety watch on duty",
+      "Written H2S emergency response plan reviewed and on location",
+      "Posted warning signage at site entry points"
+    ],
+    requirePpe: [
+      "Personal 4-gas monitor (O2, LEL, H2S, CO)",
+      "H2S escape pack / SCBA available on site"
+    ]
+  }
+};
+
 // ============== FACTS LIBRARY ==============
 // Shown in the banner at the top of the JSA form. Roughly even split between
 // trivia ("huh, didn't know that") and technical/process content (educational).
@@ -347,6 +417,7 @@ const revisionReasonInput   = document.getElementById("revision-reason");
 const hospitalStatus        = document.getElementById("hospital-status");
 const editJsaBtn            = document.getElementById("edit-jsa-btn");
 const interviewDifferent    = document.getElementById("interview-different");
+const h2sInfoPanel          = document.getElementById("h2s-info-panel");
 const ppeOverrideModal      = document.getElementById("ppe-override-modal");
 const ppeOverrideTitle      = document.getElementById("ppe-override-title");
 const ppeOverrideReason     = document.getElementById("ppe-override-reason");
@@ -507,6 +578,30 @@ function openJsaForm(job) {
   setTimeout(autoCaptureGps, 500);
 }
 
+function populateControlsList() {
+  if (!currentTemplate) return;
+  controlsList.className = "checkbox-list";
+  controlsList.innerHTML = "";
+  currentTemplate.controls.forEach((c, idx) => {
+    if (!(idx in controlsState)) {
+      controlsState[idx] = { checked: true, overrideReason: null };
+    }
+    const tag = c.type === "eng" ? "ENGINEERING" : c.type === "admin" ? "ADMIN" : "PPE";
+    const li = document.createElement("li");
+    li.className = "checkbox-item" + (controlsState[idx].checked ? "" : " unchecked");
+    li.innerHTML = `
+      <input type="checkbox" ${controlsState[idx].checked ? "checked" : ""} />
+      <span class="checkbox-item-text">${escapeHtml(c.text)}<span class="hierarchy-tag">${tag}</span></span>
+    `;
+    const cb = li.querySelector("input");
+    cb.addEventListener("change", () => {
+      controlsState[idx].checked = cb.checked;
+      li.classList.toggle("unchecked", !cb.checked);
+    });
+    controlsList.appendChild(li);
+  });
+}
+
 function populateStandardLists(template) {
   // Render hazards as tappable items with elaboration
   hazardsList.innerHTML = "";
@@ -536,26 +631,7 @@ function populateStandardLists(template) {
   });
 
   // Render controls as checkboxes (all start checked)
-  controlsList.className = "checkbox-list";
-  controlsList.innerHTML = "";
-  template.controls.forEach((c, idx) => {
-    if (!(idx in controlsState)) {
-      controlsState[idx] = { checked: true, overrideReason: null };
-    }
-    const tag = c.type === "eng" ? "ENGINEERING" : c.type === "admin" ? "ADMIN" : "PPE";
-    const li = document.createElement("li");
-    li.className = "checkbox-item" + (controlsState[idx].checked ? "" : " unchecked");
-    li.innerHTML = `
-      <input type="checkbox" ${controlsState[idx].checked ? "checked" : ""} />
-      <span class="checkbox-item-text">${escapeHtml(c.text)}<span class="hierarchy-tag">${tag}</span></span>
-    `;
-    const cb = li.querySelector("input");
-    cb.addEventListener("change", () => {
-      controlsState[idx].checked = cb.checked;
-      li.classList.toggle("unchecked", !cb.checked);
-    });
-    controlsList.appendChild(li);
-  });
+  populateControlsList();
 
   // Render PPE as checkboxes. Core items show a soft floor: unchecking
   // them prompts for a justification reason.
@@ -899,9 +975,141 @@ document.querySelectorAll(".interview-options").forEach(group => {
         chip.classList.add("selected");
         interviewAnswers[question] = value;
       }
+
+      // H2S tier triggers info panel + auto-marks PPE/controls
+      if (question === "h2s") {
+        applyH2sTier(interviewAnswers.h2s);
+      }
     });
   });
 });
+
+// Render the H2S info panel and update controls/PPE based on tier
+function applyH2sTier(tierKey) {
+  const tier = H2S_TIERS[tierKey];
+  if (!tier) return;
+
+  // Update info panel
+  if (h2sInfoPanel) {
+    if (tier.info) {
+      h2sInfoPanel.hidden = false;
+      h2sInfoPanel.className = "h2s-info-panel " + (tierKey === "cond3" ? "cond-3" : tierKey === "cond2" ? "cond-2" : "");
+      h2sInfoPanel.innerHTML = `
+        <span class="h2s-info-panel-label">${escapeHtml(tier.info.title)}</span>
+        <p class="h2s-info-panel-body">${escapeHtml(tier.info.body)}</p>
+      `;
+    } else {
+      h2sInfoPanel.hidden = true;
+      h2sInfoPanel.innerHTML = "";
+    }
+  }
+
+  // Apply control auto-marking. Add tier-specific controls to controlsState
+  // and the template snapshot only at submission time. For UI rendering, we
+  // dynamically inject these into the controls list as additional checked items.
+  refreshControlsForTier(tierKey);
+  refreshPpeRequirementsForTier(tierKey);
+}
+
+// Track tier-added controls separately so we can clean them up if tier changes
+let tierAddedControls = [];
+
+function refreshControlsForTier(tierKey) {
+  if (!currentTemplate) return;
+  const tier = H2S_TIERS[tierKey];
+  if (!tier) return;
+
+  // Remove any previously-added tier controls from controlsState
+  tierAddedControls.forEach(idx => {
+    delete controlsState[idx];
+  });
+  tierAddedControls = [];
+
+  // Re-render the standard controls list (this resets to template defaults)
+  // Then append tier-specific controls if any
+  populateControlsList();
+
+  if (tier.addControls.length > 0) {
+    const startIdx = currentTemplate.controls.length;
+    tier.addControls.forEach((controlText, offset) => {
+      const idx = startIdx + offset;
+      controlsState[idx] = { checked: true, overrideReason: null };
+      tierAddedControls.push(idx);
+      appendTierControlToList(idx, controlText, tierKey);
+    });
+  }
+}
+
+function appendTierControlToList(idx, controlText, tierKey) {
+  const tierBadge = tierKey === "cond3" ? "H2S COND III"
+                  : tierKey === "cond2" ? "H2S COND II"
+                  : "H2S";
+  const li = document.createElement("li");
+  li.className = "checkbox-item core-required";
+  li.dataset.tierIdx = idx;
+  li.innerHTML = `
+    <input type="checkbox" checked />
+    <span class="checkbox-item-text">${escapeHtml(controlText)}<span class="core-required-tag">${tierBadge}</span></span>
+  `;
+  const cb = li.querySelector("input");
+  cb.addEventListener("change", () => {
+    if (!cb.checked) {
+      // Open the same override modal pattern used for core PPE
+      cb.checked = true; // revert until they confirm
+      openPpeOverrideModal(idx, controlText, () => {
+        if (controlsState[idx]) {
+          controlsState[idx].checked = false;
+          controlsState[idx].overrideReason = ppeOverrideReason.value.trim();
+        }
+        cb.checked = false;
+        li.classList.add("unchecked");
+        renderOverrideReasonOnItem(li, ppeOverrideReason.value.trim());
+      });
+      return;
+    }
+    controlsState[idx].checked = cb.checked;
+    li.classList.toggle("unchecked", !cb.checked);
+    if (cb.checked && controlsState[idx].overrideReason) {
+      controlsState[idx].overrideReason = null;
+      const r = li.querySelector(".override-reason-display");
+      if (r) r.remove();
+    }
+  });
+  controlsList.appendChild(li);
+}
+
+function refreshPpeRequirementsForTier(tierKey) {
+  const tier = H2S_TIERS[tierKey];
+  if (!tier || !currentTemplate) return;
+
+  // Find PPE items whose text matches the tier's requirePpe list, mark them
+  // as required (core-required) in the UI. Already-core items don't change.
+  currentTemplate.ppe.forEach((p, idx) => {
+    const text = typeof p === "string" ? p : (p.text || "");
+    const shouldBeRequired = tier.requirePpe.includes(text);
+    const li = ppeList.children[idx];
+    if (!li) return;
+
+    if (shouldBeRequired) {
+      li.classList.add("core-required");
+      // Ensure the badge is present
+      if (!li.querySelector(".core-required-tag")) {
+        const span = li.querySelector(".checkbox-item-text");
+        if (span && !span.innerHTML.includes("CORE")) {
+          span.insertAdjacentHTML("beforeend", '<span class="core-required-tag">REQUIRED · H2S TIER</span>');
+        }
+      }
+      // Make sure it's checked
+      const cb = li.querySelector("input[type=checkbox]");
+      if (cb && !cb.checked) {
+        cb.checked = true;
+        if (controlsState[idx]) controlsState[idx].checked = true;
+        li.classList.remove("unchecked");
+      }
+      if (ppeState[idx]) ppeState[idx].checked = true;
+    }
+  });
+}
 
 // Free-text interview answer
 if (interviewDifferent) {
@@ -1548,11 +1756,23 @@ function buildJsaRecord({ location }) {
   // Snapshot the template content as it is at submission time. This is the
   // legal record. Even if the template is updated later, this JSA shows the
   // hazards/controls/PPE the user actually saw and acknowledged.
+  // Capture tier-added controls (from H2S Condition II/III) along with the
+  // standard template controls so the detail view and PDF can render them.
+  const tierKey = interviewAnswers.h2s;
+  const tier = tierKey && H2S_TIERS[tierKey];
+  const tierControls = (tier && tier.addControls.length)
+    ? tier.addControls.map(text => ({ text, type: "admin", tierAdded: tierKey }))
+    : [];
+  const combinedControls = currentTemplate
+    ? [...currentTemplate.controls, ...tierControls]
+    : [];
+
   const templateSnapshot = currentTemplate ? {
     hazards:  currentTemplate.hazards,
-    controls: currentTemplate.controls,
+    controls: combinedControls,
     ppe:      currentTemplate.ppe,
-    routineSteps: currentTemplate.routineSteps
+    routineSteps: currentTemplate.routineSteps,
+    tierAddedControlsCount: tierControls.length
   } : null;
 
   return {
@@ -1799,6 +2019,11 @@ function openJsaForEdit(docId, data) {
       });
     });
     if (interviewDifferent) interviewDifferent.value = interviewAnswers.different;
+
+    // Re-apply H2S tier (info panel + auto-marked controls/PPE)
+    if (interviewAnswers.h2s) {
+      applyH2sTier(interviewAnswers.h2s);
+    }
   }
 
   // Pre-populate fields from existing data
@@ -1913,10 +2138,17 @@ function renderDetailView(data) {
   // Section: Today's conditions (interview answers)
   if (data.conditions) {
     const c = data.conditions;
-    const h2sLabel = c.h2s === "known" ? "Known present"
-                    : c.h2s === "suspected" ? "Suspected"
-                    : c.h2s === "none" ? "Not present"
-                    : "—";
+    // H2S label supports both new tier system and legacy answers
+    const h2sLabels = {
+      "none":      "Not present",
+      "cond1":     "Condition I (below 10 ppm)",
+      "cond2":     "Condition II (10 to 30 ppm)",
+      "cond3":     "Condition III (above 30 ppm)",
+      // Legacy
+      "known":     "Known present",
+      "suspected": "Suspected"
+    };
+    const h2sLabel = h2sLabels[c.h2s] || "—";
     const newCrewLabel = c.newCrew === "yes" ? "Yes"
                        : c.newCrew === "no" ? "No"
                        : "—";
@@ -2253,6 +2485,14 @@ function resetJsaForm() {
   // Reset PPE/controls state (will be re-initialized by populateStandardLists)
   ppeState = {};
   controlsState = {};
+  tierAddedControls = [];
+
+  // Reset H2S info panel
+  if (h2sInfoPanel) {
+    h2sInfoPanel.hidden = true;
+    h2sInfoPanel.innerHTML = "";
+    h2sInfoPanel.className = "h2s-info-panel";
+  }
 
   // Reset signed crew
   signedCrew = [];
