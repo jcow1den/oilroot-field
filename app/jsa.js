@@ -104,7 +104,7 @@ const FLOWBACK_TEMPLATE = {
     },
     {
       text: "Falls from elevation (tanks, separator tops, elevated equipment)",
-      elaboration: "Climbing on tanks, separator catwalks, and elevated equipment for gauging, sampling, or inspection introduces fall hazards. OSHA 1910.28 requires fall protection at 4 feet for general industry. A harness and lanyard tied off to an anchor point are required for any work above 4 feet. Three points of contact applies to all ladders and elevated surfaces."
+      elaboration: "Climbing on tanks, separator catwalks, and elevated equipment for gauging, sampling, or inspection introduces fall hazards. Guard rails on tanks, separators, and elevated walkways are the primary engineering control and are inspected before each use. Three points of contact applies to all ladders. If a guard rail is damaged, missing, or unsafe, stop work and address it before continuing."
     },
     {
       text: "Slips, trips, falls at ground level (icy catwalks, slick surfaces, hoses)",
@@ -154,7 +154,7 @@ const FLOWBACK_TEMPLATE = {
     { text: "Fire extinguishers staged and inspected",                    type: "eng"   },
     { text: "Communication plan (radio, hand signals) confirmed",         type: "admin" },
     { text: "Lockout/tagout applied to all energy sources before maintenance or iron change-out (mechanical, electrical, hydraulic, pneumatic)", type: "eng"   },
-    { text: "Three points of contact on ladders, catwalks, and elevated surfaces. Fall protection harness in use when working above 4 feet.", type: "admin" },
+    { text: "Guard rails inspected and intact on tanks, separators, and elevated walkways. Three points of contact on ladders. Stop work if any rail is damaged, missing, or unsafe.", type: "eng" },
     { text: "Heater treater ignition follows operator-specific procedure. Other hot work (welding, cutting, grinding) requires separate hot work permit and is not authorized under this JSA.", type: "admin" },
     { text: "Defensive driving practices to and from location. Seatbelts in use. No phone while driving. Adequate rest before long drives.", type: "admin" }
   ],
@@ -166,8 +166,7 @@ const FLOWBACK_TEMPLATE = {
     { text: "Cut-resistant / impact gloves", core: true },
     { text: "Hearing protection (within 50 ft of flow iron)", core: false },
     { text: "Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)", core: true },
-    { text: "H2S escape pack / SCBA available on site", core: false },
-    { text: "Fall protection harness and lanyard (when working above 4 feet on tanks, separators, or elevated equipment)", core: false }
+    { text: "H2S escape pack / SCBA available on site", core: false }
   ],
   routineSteps: [
     {
