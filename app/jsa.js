@@ -337,7 +337,7 @@ const FLOWBACK_TEMPLATE = {
 // ============== TEMPLATE VERSION ==============
 // Bump when the template content changes. Stored on every JSA so we know
 // which version of the template a record was created against.
-const TEMPLATE_VERSION = "flowback-v0.4.0";
+const TEMPLATE_VERSION = "flowback-v0.4.1";
 
 // ============== H2S TIER CONFIG ==============
 // Industry-standard API Condition system. Drives the educational panel and
@@ -737,7 +737,8 @@ const jsaTimeInput  = document.getElementById("jsa-time");
 const captureGpsBtn = document.getElementById("capture-gps-btn");
 const jsaGpsEl      = document.getElementById("jsa-gps");
 const jsaHospital   = document.getElementById("jsa-hospital");
-const jsaMuster     = document.getElementById("jsa-muster");
+const jsaMusterPrimary   = document.getElementById("jsa-muster-primary");
+const jsaMusterSecondary = document.getElementById("jsa-muster-secondary");
 const jsaEmergencyPhone = document.getElementById("jsa-emergency-phone");
 const jsaFirstAidLoc    = document.getElementById("jsa-first-aid-loc");
 const jsaAedLoc         = document.getElementById("jsa-aed-loc");
@@ -1417,7 +1418,7 @@ async function computeJsaContentHash() {
       location: jsaLocation.value.trim(),
       date: jsaDateInput.value,
       shiftStart: jsaTimeInput.value,
-      muster: jsaMuster.value.trim(),
+      muster: jsaMusterPrimary.value.trim() + " | " + jsaMusterSecondary.value.trim(),
       hospital: jsaHospital.value.trim(),
       conditions: interviewAnswers,
       controlsState: controlsState,
@@ -1856,8 +1857,11 @@ function applyFastPath(priorJsa) {
   }
 
   // Pre-fill other useful fields the user might want to keep
-  if (priorJsa.musterPoint && !jsaMuster.value.trim()) {
-    jsaMuster.value = priorJsa.musterPoint;
+  if (priorJsa.musterPrimary && !jsaMusterPrimary.value.trim()) {
+    jsaMusterPrimary.value = priorJsa.musterPrimary;
+  }
+  if (priorJsa.musterSecondary && !jsaMusterSecondary.value.trim()) {
+    jsaMusterSecondary.value = priorJsa.musterSecondary;
   }
   if (priorJsa.emergencyInfo) {
     if (jsaEmergencyPhone && priorJsa.emergencyInfo.contactNumbers && !jsaEmergencyPhone.value.trim()) {
@@ -2383,10 +2387,16 @@ submitJsaBtn.addEventListener("click", async () => {
     jsaLocation.focus();
     return;
   }
-  const muster = jsaMuster.value.trim();
-  if (!muster) {
-    showToast("Muster point is required", "error");
-    jsaMuster.focus();
+  const musterPrimary = jsaMusterPrimary.value.trim();
+  if (!musterPrimary) {
+    showToast("Primary muster point is required", "error");
+    jsaMusterPrimary.focus();
+    return;
+  }
+  const musterSecondary = jsaMusterSecondary.value.trim();
+  if (!musterSecondary) {
+    showToast("Secondary muster point is required", "error");
+    jsaMusterSecondary.focus();
     return;
   }
   if (!interviewAnswers.h2s) {
@@ -2554,7 +2564,8 @@ function snapshotPriorState(data) {
     shiftStart:       data.shiftStart,
     gps:              data.gps,
     nearestHospital:  data.nearestHospital,
-    musterPoint:      data.musterPoint,
+    musterPrimary:    data.musterPrimary,
+    musterSecondary:  data.musterSecondary,
     standardConfirmed:    data.standardConfirmed,
     standardConfirmedAt:  data.standardConfirmedAt,
     exceptionFlagged:     data.exceptionFlagged,
@@ -2612,7 +2623,8 @@ function buildJsaRecord({ location }) {
     shiftStart:    jsaTimeInput.value || null,
     gps:           capturedGps,
     nearestHospital: jsaHospital.value.trim(),
-    musterPoint:     jsaMuster.value.trim(),
+    musterPrimary:   jsaMusterPrimary.value.trim(),
+    musterSecondary: jsaMusterSecondary.value.trim(),
 
     // Emergency information (optional)
     emergencyInfo: {
@@ -2888,7 +2900,8 @@ function openJsaForEdit(docId, data) {
   jsaDateInput.value        = data.date || "";
   jsaTimeInput.value        = data.shiftStart || "";
   jsaHospital.value         = data.nearestHospital || "";
-  jsaMuster.value           = data.musterPoint || "";
+  jsaMusterPrimary.value    = data.musterPrimary || "";
+  jsaMusterSecondary.value  = data.musterSecondary || "";
   jsaTodayDifferent.value   = data.todayDifferent || "";
   jsaStopWork.value         = data.stopWork || "";
 
@@ -3014,8 +3027,12 @@ function renderDetailView(data) {
         <span class="detail-value ${data.nearestHospital ? "" : "muted"}">${escapeHtml(data.nearestHospital || "Not specified")}</span>
       </div>
       <div class="detail-row">
-        <span class="spec-label">Muster point</span>
-        <span class="detail-value ${data.musterPoint ? "" : "muted"}">${escapeHtml(data.musterPoint || "Not specified")}</span>
+        <span class="spec-label">Primary muster point</span>
+        <span class="detail-value ${data.musterPrimary ? "" : "muted"}">${escapeHtml(data.musterPrimary || "Not specified")}</span>
+      </div>
+      <div class="detail-row">
+        <span class="spec-label">Secondary muster point</span>
+        <span class="detail-value ${data.musterSecondary ? "" : "muted"}">${escapeHtml(data.musterSecondary || "Not specified")}</span>
       </div>
       ${data.emergencyInfo ? `
         ${data.emergencyInfo.contactNumbers ? `<div class="detail-row"><span class="spec-label">Emergency contact numbers</span><span class="detail-value">${escapeHtml(data.emergencyInfo.contactNumbers)}</span></div>` : ""}
