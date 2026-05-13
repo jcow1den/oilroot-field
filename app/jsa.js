@@ -1088,6 +1088,117 @@ function populateStandardLists(template) {
   // Update count displays now that everything's rendered
   updateCollapseCounts();
 
+  // ============== COMBINED LIST RENDER (v0.4 minimal form) ==============
+  // The visible UI uses a single combined list of controls + PPE filtered
+  // to today's active content. The hidden #controls-list and #ppe-list above
+  // stay populated for backward compat with existing logic that references them.
+  const combinedList = document.getElementById("combined-list");
+  if (combinedList) {
+    combinedList.innerHTML = "";
+    const activeCtl = new Set(active.controlIdxs);
+    const activePpe = new Set(active.ppeIdxs);
+
+    // First, render filtered controls
+    template.controls.forEach((c, idx) => {
+      if (!activeCtl.has(idx)) return;
+      if (!(idx in controlsState)) {
+        controlsState[idx] = { checked: false, overrideReason: null, expanded: false };
+      }
+      const li = document.createElement("li");
+      li.className = "checkbox-item expandable" + (controlsState[idx].checked ? " checked" : "");
+      li.innerHTML = `
+        <div class="checkbox-item-row">
+          <input type="checkbox" ${controlsState[idx].checked ? "checked" : ""} />
+          <button type="button" class="checkbox-item-text-btn" aria-expanded="false">
+            <span class="checkbox-item-text">${escapeHtml(c.text)}<span class="hierarchy-tag">CONTROL</span></span>
+            <svg class="elab-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="item-elaboration" hidden>
+          <span class="elaboration-label">Why this matters</span>
+          ${escapeHtml(c.elaboration || "")}
+        </div>
+      `;
+      const cb = li.querySelector("input");
+      const expandBtn = li.querySelector(".checkbox-item-text-btn");
+      const elab = li.querySelector(".item-elaboration");
+
+      cb.addEventListener("change", () => {
+        controlsState[idx].checked = cb.checked;
+        li.classList.toggle("checked", cb.checked);
+        // Mirror state to legacy hidden list so backward-compat works
+        const legacyLi = controlsList.children[idx];
+        if (legacyLi) {
+          const legacyCb = legacyLi.querySelector("input[type=checkbox]");
+          if (legacyCb) legacyCb.checked = cb.checked;
+        }
+      });
+
+      expandBtn.addEventListener("click", () => {
+        const expanded = li.classList.toggle("expanded");
+        elab.hidden = !expanded;
+        expandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        if (expanded) controlsState[idx].expanded = true;
+      });
+      combinedList.appendChild(li);
+    });
+
+    // Then render filtered PPE
+    template.ppe.forEach((p, idx) => {
+      if (!activePpe.has(idx)) return;
+      if (!(idx in ppeState)) {
+        ppeState[idx] = { checked: false, overrideReason: null, expanded: false };
+      }
+      const isCore = !!p.core;
+      const li = document.createElement("li");
+      li.className = "checkbox-item expandable" + (isCore ? " core-required" : "") + (ppeState[idx].checked ? " checked" : "");
+      li.innerHTML = `
+        <div class="checkbox-item-row">
+          <input type="checkbox" ${ppeState[idx].checked ? "checked" : ""} />
+          <button type="button" class="checkbox-item-text-btn" aria-expanded="false">
+            <span class="checkbox-item-text">${escapeHtml(p.text)}<span class="hierarchy-tag">PPE${isCore ? " · CORE" : ""}</span></span>
+            <svg class="elab-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="item-elaboration" hidden>
+          <span class="elaboration-label">Why this matters</span>
+          ${escapeHtml(p.elaboration || "")}
+        </div>
+      `;
+      const cb = li.querySelector("input");
+      const expandBtn = li.querySelector(".checkbox-item-text-btn");
+      const elab = li.querySelector(".item-elaboration");
+
+      cb.addEventListener("change", () => {
+        ppeState[idx].checked = cb.checked;
+        li.classList.toggle("checked", cb.checked);
+        const legacyLi = ppeList.children[idx];
+        if (legacyLi) {
+          const legacyCb = legacyLi.querySelector("input[type=checkbox]");
+          if (legacyCb) legacyCb.checked = cb.checked;
+        }
+      });
+
+      expandBtn.addEventListener("click", () => {
+        const expanded = li.classList.toggle("expanded");
+        elab.hidden = !expanded;
+        expandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        if (expanded) ppeState[idx].expanded = true;
+      });
+      combinedList.appendChild(li);
+    });
+  }
+
+  // Update hazards count tag on the inline collapse
+  const hazardsCountTag = document.getElementById("hazards-count-tag");
+  if (hazardsCountTag) {
+    hazardsCountTag.textContent = `${active.hazardIdxs.length} items`;
+  }
+
   // Render routine steps (always visible)
   if (routineStepsList) {
     routineStepsList.innerHTML = template.routineSteps.map((step, i) => {
@@ -1398,12 +1509,30 @@ function escapeHtml(s) {
 
 // ============== COLLAPSIBLE SECTIONS (legacy, no-op when not present) ==============
 function setupCollapsibles() {
-  // Collapsible headers were removed in v0.4 since conditional content keeps
-  // the lists short naturally. Function kept as safe no-op.
+  // Wire up the inline collapse buttons in §02 Confirm what applies
+  const inlineCollapsibles = [
+    { btnId: "hazards-toggle",       targetId: "hazards-list" },
+    { btnId: "routine-steps-toggle", targetId: "routine-steps-list" },
+    { btnId: "specifics-toggle",     targetId: "specifics-area" }
+  ];
+  inlineCollapsibles.forEach(({ btnId, targetId }) => {
+    const btn = document.getElementById(btnId);
+    const target = document.getElementById(targetId);
+    if (!btn || !target) return;
+    // Avoid double-wiring on re-init
+    if (btn.dataset.wired === "true") return;
+    btn.dataset.wired = "true";
+    btn.addEventListener("click", () => {
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", expanded ? "false" : "true");
+      btn.classList.toggle("expanded", !expanded);
+      target.hidden = expanded;
+    });
+  });
 }
 
 function updateCollapseCounts() {
-  // Same as above; no-op.
+  // Counts are rendered inline now; no-op
 }
 
 // Initialize collapsibles on page load
@@ -2258,8 +2387,11 @@ submitJsaBtn.addEventListener("click", async () => {
     document.getElementById("conditions-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
-  if (isStandardConfirmed === false && exceptionFlagged === false) {
-    showToast("Confirm standard items, or flag an exception, before submitting", "error");
+  // Routine task must be acknowledged before submitting
+  const routineCheck = document.getElementById("task-routine");
+  if (routineCheck && !routineCheck.checked) {
+    showToast("Acknowledge the standard task breakdown before submitting", "error");
+    routineCheck.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
   if (exceptionFlagged) {
@@ -2471,7 +2603,8 @@ function buildJsaRecord({ location }) {
     },
 
     // Standard items
-    standardConfirmed:   isStandardConfirmed,
+    // Standard confirmation derives from the routine task acknowledgment now
+    standardConfirmed:   (document.getElementById("task-routine")?.checked === true),
     standardConfirmedAt: standardConfirmedAt,
     exceptionFlagged:    exceptionFlagged,
     exceptionText:       exceptionFlagged ? exceptionText.value.trim() : "",
@@ -2749,7 +2882,12 @@ function openJsaForEdit(docId, data) {
     isStandardConfirmed = true;
     standardConfirmedAt = data.standardConfirmedAt;
     confirmStandardBtn.classList.add("confirmed");
-    confirmStandardBtn.querySelector(".btn-confirm-label").textContent = "Confirmed for today's work";
+    if (confirmStandardBtn.querySelector(".btn-confirm-label")) {
+      confirmStandardBtn.querySelector(".btn-confirm-label").textContent = "Confirmed for today's work";
+    }
+    // Also tick the visible routine acknowledgment in the new minimal form
+    const routineCheck = document.getElementById("task-routine");
+    if (routineCheck) routineCheck.checked = true;
   }
   if (data.exceptionFlagged) {
     exceptionFlagged = true;
@@ -3186,9 +3324,10 @@ function resetJsaForm() {
   standardConfirmedAt = null;
   exceptionFlagged = false;
   confirmStandardBtn.classList.remove("confirmed");
-  confirmStandardBtn.querySelector(".btn-confirm-label").textContent = "I've reviewed everything above and it applies to today's work";
+  const confirmLabel = confirmStandardBtn.querySelector(".btn-confirm-label");
+  if (confirmLabel) confirmLabel.textContent = "I've reviewed everything above and it applies to today's work";
   exceptionArea.hidden = true;
-  exceptionBtn.textContent = "Something is different";
+  exceptionBtn.textContent = "Flag exception (something is different from standard)";
   // Collapse any expanded hazard items
   document.querySelectorAll(".hazard-item.expanded").forEach(el => {
     el.classList.remove("expanded");
@@ -3197,7 +3336,19 @@ function resetJsaForm() {
     if (head) head.setAttribute("aria-expanded", "false");
     if (elab) elab.hidden = true;
   });
-  if (taskRoutine) taskRoutine.checked = true;
+  // Reset inline collapsibles
+  ["hazards-toggle", "routine-steps-toggle", "specifics-toggle"].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      btn.setAttribute("aria-expanded", "false");
+      btn.classList.remove("expanded");
+    }
+  });
+  ["hazards-list", "routine-steps-list", "specifics-area"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+  });
+  if (taskRoutine) taskRoutine.checked = false;  // active acknowledgment, not pre-checked
   customTasksEl.innerHTML = "";
   customTaskCount = 0;
   if (hospitalStatus) {
