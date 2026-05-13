@@ -308,8 +308,15 @@
         </label>
 
         <label class="field-group">
-          <span class="spec-label">Muster point <span class="spec-required">·  REQUIRED</span></span>
-          <input type="text" id="jsa-muster" class="field" placeholder="e.g., NE corner of pad, by the lighting tower" />
+          <span class="spec-label">Primary muster point <span class="spec-required">·  REQUIRED</span></span>
+          <span class="hint">Upwind of work zone. Where crew gathers in an emergency.</span>
+          <input type="text" id="jsa-muster-primary" class="field" placeholder="e.g., NE corner of pad, by the lighting tower" />
+        </label>
+
+        <label class="field-group">
+          <span class="spec-label">Secondary muster point <span class="spec-required">·  REQUIRED</span></span>
+          <span class="hint">Alternative if primary is compromised by wind shift, fire, or release.</span>
+          <input type="text" id="jsa-muster-secondary" class="field" placeholder="e.g., SW corner of pad, by the equipment trailer" />
         </label>
 
         <div class="emergency-info-block">
