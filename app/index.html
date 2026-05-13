@@ -422,11 +422,39 @@
         </div>
 
         <p class="section-blurb">
-          Each crew member signs individually with Stop Work Authority acknowledgment.
+          Each crew member signs individually after reviewing the JSA. Pass the device around. At least one signature is required.
         </p>
 
-        <div class="placeholder-inline">
-          <span class="font-mono">SIGNATURE CAPTURE · WIRES UP IN SESSION 4</span>
+        <!-- List of already-signed crew members -->
+        <div id="crew-signed-list" class="crew-signed-list"></div>
+
+        <!-- Add new crew member: name, SWA, signature pad -->
+        <div id="crew-add-form" class="crew-add-form">
+          <label class="field-group">
+            <span class="spec-label">Crew member name</span>
+            <input type="text" id="crew-name" class="field" placeholder="First and last name" autocomplete="off" />
+          </label>
+
+          <label class="swa-checkbox-label">
+            <input type="checkbox" id="crew-swa" class="swa-checkbox" />
+            <span class="swa-text">
+              <strong>Stop Work Authority.</strong> I understand I have Stop Work Authority. If I see a condition that is unsafe or unfamiliar, I will stop work and address it before continuing.
+            </span>
+          </label>
+
+          <div class="signature-pad-wrapper">
+            <span class="spec-label">Signature</span>
+            <canvas id="signature-pad" class="signature-pad" width="600" height="180"></canvas>
+            <div class="signature-pad-actions">
+              <button type="button" id="signature-clear" class="btn-ghost-sm">Clear</button>
+              <span id="signature-hint" class="signature-hint font-mono">DRAW WITH FINGER OR MOUSE</span>
+            </div>
+          </div>
+
+          <button type="button" id="add-crew-btn" class="btn-primary">
+            <span class="btn-label">Add this signature</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5 9-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
       </div>
 
