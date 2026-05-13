@@ -2174,6 +2174,31 @@ html, body {
   vertical-align: middle;
 }
 
+/* ============== PREFILL INDICATOR ============== */
+.prefill-indicator {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: rgba(101, 163, 13, 0.08);
+  border-left: 2px solid var(--green);
+  border-radius: 0 4px 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prefill-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--green);
+}
+
+.prefill-detail {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
 /* ============== TOAST ============== */
 .toast {
   position: fixed;
