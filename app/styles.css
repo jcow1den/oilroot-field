@@ -2199,6 +2199,108 @@ html, body {
   color: var(--ink-2);
 }
 
+/* ============== INLINE COLLAPSE BUTTONS ============== */
+.inline-collapse-btn {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  padding: 11px 14px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.inline-collapse-btn:hover {
+  border-color: var(--ink-2);
+  background: var(--bg-2);
+}
+
+.inline-collapse-btn-sm {
+  background: transparent;
+  border: 0;
+  padding: 8px 0 0 28px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+  text-align: left;
+}
+
+.inline-collapse-btn-sm:hover {
+  color: var(--ink-2);
+}
+
+.inline-collapse-count {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  padding: 2px 6px;
+  background: var(--bg-2);
+  border-radius: 3px;
+}
+
+.collapse-arrow-icon {
+  transition: transform 0.2s ease;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+.inline-collapse-btn.expanded .collapse-arrow-icon,
+.inline-collapse-btn-sm.expanded .collapse-arrow-icon {
+  transform: rotate(90deg);
+}
+
+/* ============== TASK CARD INLINE (in §02) ============== */
+.task-card-inline {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+}
+
+.task-card-inline .task-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* ============== EXCEPTION FLAG BTN ============== */
+.exception-flag-btn {
+  margin-top: 16px;
+  width: 100%;
+  text-align: center;
+  padding: 10px;
+  background: transparent;
+  border: 1px dashed var(--line-2);
+  border-radius: 4px;
+  color: var(--ink-3);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+.exception-flag-btn:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
 /* ============== TOAST ============== */
 .toast {
   position: fixed;
