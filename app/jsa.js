@@ -1090,62 +1090,49 @@ function populateStandardLists(template) {
 
   // ============== COMBINED LIST RENDER (v0.4 minimal form) ==============
   // The visible UI uses a single combined list of controls + PPE filtered
-  // to today's active content. The hidden #controls-list and #ppe-list above
-  // stay populated for backward compat with existing logic that references them.
+  // to today's active content. In the 3-acknowledgment structure this list
+  // is informational only: the user reads what's covered, then acknowledges.
+  // Each item is tap-to-expand for the elaboration. No individual checkboxes
+  // in the visible UI; checkbox state in the audit trail comes from the
+  // parent acknowledgment.
   const combinedList = document.getElementById("combined-list");
   if (combinedList) {
     combinedList.innerHTML = "";
     const activeCtl = new Set(active.controlIdxs);
     const activePpe = new Set(active.ppeIdxs);
 
-    // First, render filtered controls
+    // Render filtered controls as informational rows
     template.controls.forEach((c, idx) => {
       if (!activeCtl.has(idx)) return;
       if (!(idx in controlsState)) {
         controlsState[idx] = { checked: false, overrideReason: null, expanded: false };
       }
       const li = document.createElement("li");
-      li.className = "checkbox-item expandable" + (controlsState[idx].checked ? " checked" : "");
+      li.className = "info-item expandable";
       li.innerHTML = `
-        <div class="checkbox-item-row">
-          <input type="checkbox" ${controlsState[idx].checked ? "checked" : ""} />
-          <button type="button" class="checkbox-item-text-btn" aria-expanded="false">
-            <span class="checkbox-item-text">${escapeHtml(c.text)}<span class="hierarchy-tag">CONTROL</span></span>
-            <svg class="elab-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
+        <button type="button" class="info-item-btn" aria-expanded="false">
+          <span class="info-item-text">${escapeHtml(c.text)}<span class="hierarchy-tag">CONTROL</span></span>
+          <svg class="elab-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <div class="item-elaboration" hidden>
           <span class="elaboration-label">Why this matters</span>
           ${escapeHtml(c.elaboration || "")}
         </div>
       `;
-      const cb = li.querySelector("input");
-      const expandBtn = li.querySelector(".checkbox-item-text-btn");
+      const btn = li.querySelector(".info-item-btn");
       const elab = li.querySelector(".item-elaboration");
-
-      cb.addEventListener("change", () => {
-        controlsState[idx].checked = cb.checked;
-        li.classList.toggle("checked", cb.checked);
-        // Mirror state to legacy hidden list so backward-compat works
-        const legacyLi = controlsList.children[idx];
-        if (legacyLi) {
-          const legacyCb = legacyLi.querySelector("input[type=checkbox]");
-          if (legacyCb) legacyCb.checked = cb.checked;
-        }
-      });
-
-      expandBtn.addEventListener("click", () => {
+      btn.addEventListener("click", () => {
         const expanded = li.classList.toggle("expanded");
         elab.hidden = !expanded;
-        expandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
         if (expanded) controlsState[idx].expanded = true;
       });
       combinedList.appendChild(li);
     });
 
-    // Then render filtered PPE
+    // Render filtered PPE as informational rows
     template.ppe.forEach((p, idx) => {
       if (!activePpe.has(idx)) return;
       if (!(idx in ppeState)) {
@@ -1153,50 +1140,40 @@ function populateStandardLists(template) {
       }
       const isCore = !!p.core;
       const li = document.createElement("li");
-      li.className = "checkbox-item expandable" + (isCore ? " core-required" : "") + (ppeState[idx].checked ? " checked" : "");
+      li.className = "info-item expandable";
       li.innerHTML = `
-        <div class="checkbox-item-row">
-          <input type="checkbox" ${ppeState[idx].checked ? "checked" : ""} />
-          <button type="button" class="checkbox-item-text-btn" aria-expanded="false">
-            <span class="checkbox-item-text">${escapeHtml(p.text)}<span class="hierarchy-tag">PPE${isCore ? " · CORE" : ""}</span></span>
-            <svg class="elab-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
-        </div>
+        <button type="button" class="info-item-btn" aria-expanded="false">
+          <span class="info-item-text">${escapeHtml(p.text)}<span class="hierarchy-tag">PPE${isCore ? " · CORE" : ""}</span></span>
+          <svg class="elab-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
         <div class="item-elaboration" hidden>
           <span class="elaboration-label">Why this matters</span>
           ${escapeHtml(p.elaboration || "")}
         </div>
       `;
-      const cb = li.querySelector("input");
-      const expandBtn = li.querySelector(".checkbox-item-text-btn");
+      const btn = li.querySelector(".info-item-btn");
       const elab = li.querySelector(".item-elaboration");
-
-      cb.addEventListener("change", () => {
-        ppeState[idx].checked = cb.checked;
-        li.classList.toggle("checked", cb.checked);
-        const legacyLi = ppeList.children[idx];
-        if (legacyLi) {
-          const legacyCb = legacyLi.querySelector("input[type=checkbox]");
-          if (legacyCb) legacyCb.checked = cb.checked;
-        }
-      });
-
-      expandBtn.addEventListener("click", () => {
+      btn.addEventListener("click", () => {
         const expanded = li.classList.toggle("expanded");
         elab.hidden = !expanded;
-        expandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+        btn.setAttribute("aria-expanded", expanded ? "true" : "false");
         if (expanded) ppeState[idx].expanded = true;
       });
       combinedList.appendChild(li);
     });
   }
 
-  // Update hazards count tag on the inline collapse
-  const hazardsCountTag = document.getElementById("hazards-count-tag");
-  if (hazardsCountTag) {
-    hazardsCountTag.textContent = `${active.hazardIdxs.length} items`;
+  // Update count labels on the acknowledgment cards
+  const ackHazardsSub = document.getElementById("ack-hazards-sub");
+  if (ackHazardsSub) {
+    ackHazardsSub.textContent = `${active.hazardIdxs.length} hazards apply to today's work`;
+  }
+  const ackCtlPpeSub = document.getElementById("ack-controls-ppe-sub");
+  if (ackCtlPpeSub) {
+    const totalCtlPpe = active.controlIdxs.length + active.ppeIdxs.length;
+    ackCtlPpeSub.textContent = `${active.controlIdxs.length} controls and ${active.ppeIdxs.length} PPE items apply`;
   }
 
   // Render routine steps (always visible)
@@ -1511,15 +1488,15 @@ function escapeHtml(s) {
 function setupCollapsibles() {
   // Wire up the inline collapse buttons in §02 Confirm what applies
   const inlineCollapsibles = [
-    { btnId: "hazards-toggle",       targetId: "hazards-list" },
-    { btnId: "routine-steps-toggle", targetId: "routine-steps-list" },
-    { btnId: "specifics-toggle",     targetId: "specifics-area" }
+    { btnId: "ack-hazards-toggle",      targetId: "hazards-list" },
+    { btnId: "ack-controls-ppe-toggle", targetId: "combined-list" },
+    { btnId: "routine-steps-toggle",    targetId: "routine-steps-list" },
+    { btnId: "specifics-toggle",        targetId: "specifics-area" }
   ];
   inlineCollapsibles.forEach(({ btnId, targetId }) => {
     const btn = document.getElementById(btnId);
     const target = document.getElementById(targetId);
     if (!btn || !target) return;
-    // Avoid double-wiring on re-init
     if (btn.dataset.wired === "true") return;
     btn.dataset.wired = "true";
     btn.addEventListener("click", () => {
@@ -1529,6 +1506,51 @@ function setupCollapsibles() {
       target.hidden = expanded;
     });
   });
+
+  // When acknowledgment checkboxes are toggled, cascade to underlying item state
+  // so the audit trail accurately reflects what the user attested to.
+  const ackHazards = document.getElementById("ack-hazards");
+  if (ackHazards && ackHazards.dataset.wired !== "true") {
+    ackHazards.dataset.wired = "true";
+    ackHazards.addEventListener("change", () => {
+      // Hazards aren't checkboxed individually; the acknowledgment IS the record.
+      // We mirror state to the legacy lists for any code that still reads them.
+      if (!currentTemplate) return;
+      const active = buildActiveContent(interviewAnswers);
+      active.hazardIdxs.forEach(idx => {
+        // Hazards don't have a state object historically; treat the ack as truth
+      });
+    });
+  }
+
+  const ackCtlPpe = document.getElementById("ack-controls-ppe");
+  if (ackCtlPpe && ackCtlPpe.dataset.wired !== "true") {
+    ackCtlPpe.dataset.wired = "true";
+    ackCtlPpe.addEventListener("change", () => {
+      if (!currentTemplate) return;
+      const active = buildActiveContent(interviewAnswers);
+      const checked = ackCtlPpe.checked;
+      active.controlIdxs.forEach(idx => {
+        if (!controlsState[idx]) controlsState[idx] = { checked: false, overrideReason: null, expanded: false };
+        controlsState[idx].checked = checked;
+        // Mirror to legacy hidden list
+        const legacyLi = controlsList.children[idx];
+        if (legacyLi) {
+          const legacyCb = legacyLi.querySelector("input[type=checkbox]");
+          if (legacyCb) legacyCb.checked = checked;
+        }
+      });
+      active.ppeIdxs.forEach(idx => {
+        if (!ppeState[idx]) ppeState[idx] = { checked: false, overrideReason: null, expanded: false };
+        ppeState[idx].checked = checked;
+        const legacyLi = ppeList.children[idx];
+        if (legacyLi) {
+          const legacyCb = legacyLi.querySelector("input[type=checkbox]");
+          if (legacyCb) legacyCb.checked = checked;
+        }
+      });
+    });
+  }
 }
 
 function updateCollapseCounts() {
@@ -2387,13 +2409,27 @@ submitJsaBtn.addEventListener("click", async () => {
     document.getElementById("conditions-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
   }
-  // Routine task must be acknowledged before submitting
-  const routineCheck = document.getElementById("task-routine");
+  // All three acknowledgments must be checked before submitting
+  const ackHazards    = document.getElementById("ack-hazards");
+  const ackCtlPpe     = document.getElementById("ack-controls-ppe");
+  const routineCheck  = document.getElementById("task-routine");
+
+  if (ackHazards && !ackHazards.checked) {
+    showToast("Acknowledge hazards reviewed before submitting", "error");
+    ackHazards.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+  if (ackCtlPpe && !ackCtlPpe.checked) {
+    showToast("Acknowledge controls and PPE in place before submitting", "error");
+    ackCtlPpe.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
   if (routineCheck && !routineCheck.checked) {
     showToast("Acknowledge the standard task breakdown before submitting", "error");
     routineCheck.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
+
   if (exceptionFlagged) {
     if (!exceptionText.value.trim()) {
       showToast("Describe what's different from standard", "error");
@@ -2413,21 +2449,6 @@ submitJsaBtn.addEventListener("click", async () => {
     if (!exceptionStopwork.value.trim()) {
       showToast("Stop work threshold for this exception is required", "error");
       exceptionStopwork.focus();
-      return;
-    }
-  }
-
-  // All core PPE items must be checked before submission. These are the
-  // baseline PPE that always applies to flowback work.
-  if (currentTemplate && currentTemplate.ppe) {
-    const missingCorePpe = [];
-    currentTemplate.ppe.forEach((p, idx) => {
-      if (p.core && (!ppeState[idx] || !ppeState[idx].checked)) {
-        missingCorePpe.push(p.text);
-      }
-    });
-    if (missingCorePpe.length > 0) {
-      showToast(`Required PPE not checked: ${missingCorePpe[0]}${missingCorePpe.length > 1 ? ` (+${missingCorePpe.length - 1} more)` : ""}`, "error");
       return;
     }
   }
@@ -2603,8 +2624,19 @@ function buildJsaRecord({ location }) {
     },
 
     // Standard items
-    // Standard confirmation derives from the routine task acknowledgment now
-    standardConfirmed:   (document.getElementById("task-routine")?.checked === true),
+    // standardConfirmed is true when ALL 3 acknowledgments are checked, which
+    // is the new v0.4.0 condition for a submittable JSA.
+    standardConfirmed:   (
+      document.getElementById("ack-hazards")?.checked === true &&
+      document.getElementById("ack-controls-ppe")?.checked === true &&
+      document.getElementById("task-routine")?.checked === true
+    ),
+    // Granular per-acknowledgment record for audit
+    acknowledgments: {
+      hazardsReviewed:           document.getElementById("ack-hazards")?.checked === true,
+      controlsAndPpeInPlace:     document.getElementById("ack-controls-ppe")?.checked === true,
+      taskBreakdownAcknowledged: document.getElementById("task-routine")?.checked === true
+    },
     standardConfirmedAt: standardConfirmedAt,
     exceptionFlagged:    exceptionFlagged,
     exceptionText:       exceptionFlagged ? exceptionText.value.trim() : "",
@@ -2903,6 +2935,15 @@ function openJsaForEdit(docId, data) {
 
   // Routine task acknowledgment
   if (taskRoutine) taskRoutine.checked = !!data.routineTaskAcknowledged;
+
+  // 3-ack structure: if the prior JSA had standardConfirmed=true, tick both
+  // new acknowledgments. Older JSAs predate the 3-ack structure so we infer.
+  const ackH_ = document.getElementById("ack-hazards");
+  const ackCP_ = document.getElementById("ack-controls-ppe");
+  if (data.standardConfirmed) {
+    if (ackH_) ackH_.checked = true;
+    if (ackCP_) ackCP_.checked = true;
+  }
 
   // Custom tasks: re-populate
   if (Array.isArray(data.customTasks)) {
@@ -3349,6 +3390,11 @@ function resetJsaForm() {
     if (el) el.hidden = true;
   });
   if (taskRoutine) taskRoutine.checked = false;  // active acknowledgment, not pre-checked
+  // Reset the two new acknowledgments in the 3-ack structure
+  const ackH = document.getElementById("ack-hazards");
+  const ackCP = document.getElementById("ack-controls-ppe");
+  if (ackH) ackH.checked = false;
+  if (ackCP) ackCP.checked = false;
   customTasksEl.innerHTML = "";
   customTaskCount = 0;
   if (hospitalStatus) {
