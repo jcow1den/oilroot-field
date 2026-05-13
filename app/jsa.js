@@ -84,7 +84,7 @@ const FLOWBACK_TEMPLATE = {
     },
     {
       text: "Hot work and ignition sources (heater treaters, welding, cutting, grinding)",
-      elaboration: "Heater treater ignition is part of flowback operations and follows the operator's specific procedure. Other hot work such as welding, cutting, grinding, and any open flame requires a separate hot work permit per OSHA 1910.252 and is not authorized under this JSA. Verify atmosphere is below 10% LEL before any ignition source, including heater treater lighting."
+      elaboration: "Heater treater ignition is part of flowback operations and follows the operator's specific procedure. Other hot work such as welding, cutting, grinding, and any open flame requires a separate hot work permit and is not authorized under this JSA. Verify atmosphere is below 10% LEL before any ignition source, including heater treater lighting."
     },
     {
       text: "Hot surfaces (separator vessels, flow iron after flow)",
@@ -112,15 +112,15 @@ const FLOWBACK_TEMPLATE = {
     },
     {
       text: "Stored energy release during maintenance (mechanical, electrical, hydraulic, pneumatic)",
-      elaboration: "Iron change-out, valve repair, and equipment maintenance can release stored energy unexpectedly. OSHA 1910.147 requires lockout/tagout (LOTO) of all energy sources before maintenance: depressurization, electrical isolation, pneumatic bleed-off, hydraulic relief. Every energy source must be verified at zero before work begins."
+      elaboration: "Iron change-out, valve repair, and equipment maintenance can release stored energy unexpectedly. Lockout/tagout (LOTO) of all energy sources is required before maintenance: depressurization, electrical isolation, pneumatic bleed-off, hydraulic relief. Every energy source must be verified at zero before work begins."
     },
     {
       text: "Confined space hazards (tanks, vessels, enclosed work areas)",
-      elaboration: "Tanks, vessels, and certain enclosed work areas qualify as permit-required confined spaces under OSHA 1910.146. Flowback operations do not include confined space entry. Tank entry, vessel entry, and similar work require a separate permit process with atmospheric testing, ventilation, attendant, and retrieval equipment, and are not authorized under this JSA."
+      elaboration: "Tanks, vessels, and certain enclosed work areas qualify as permit-required confined spaces. Flowback operations do not include confined space entry. Tank entry, vessel entry, and similar work require a separate permit process with atmospheric testing, ventilation, attendant, and retrieval equipment, and are not authorized under this JSA."
     },
     {
       text: "Noise exposure (over 85 dB)",
-      elaboration: "OSHA's action level for noise exposure is 85 dB averaged over 8 hours. Flowback equipment commonly exceeds 95 dB at the work area. Hearing protection is required within 50 feet of flow iron. Long-term hearing damage is cumulative and not reversible."
+      elaboration: "The industry-recognized action level for noise exposure is 85 dB averaged over 8 hours. Flowback equipment commonly exceeds 95 dB at the work area. Hearing protection is required within 50 feet of flow iron. Long-term hearing damage is cumulative and not reversible."
     },
     {
       text: "Chemical exposure (produced fluids, treatment chemicals)",
@@ -140,33 +140,133 @@ const FLOWBACK_TEMPLATE = {
     }
   ],
   controls: [
-    { text: "Pre-job safety meeting completed and documented",            type: "admin" },
-    { text: "Stop Work Authority communicated to all crew",               type: "admin" },
-    { text: "All non-essential personnel kept clear of pressure work zones", type: "admin" },
-    { text: "Pressure verified at zero before any iron disconnection",    type: "admin" },
-    { text: "Hammer unions properly seated and pinned",                   type: "eng"   },
-    { text: "Lines restrained per operator spec",                       type: "eng"   },
-    { text: "Bonding and grounding verified on all flowback equipment and vessels", type: "eng"   },
-    { text: "Continuous gas monitoring (4-gas) at work area",             type: "eng"   },
-    { text: "Wind direction noted, briefing oriented to upwind muster",   type: "admin" },
-    { text: "Spill kit on site and location communicated",                type: "admin" },
-    { text: "Berms / secondary containment verified",                     type: "eng"   },
-    { text: "Fire extinguishers staged and inspected",                    type: "eng"   },
-    { text: "Communication plan (radio, hand signals) confirmed",         type: "admin" },
-    { text: "Lockout/tagout applied to all energy sources before maintenance or iron change-out (mechanical, electrical, hydraulic, pneumatic)", type: "eng"   },
-    { text: "Guard rails inspected and intact on tanks, separators, and elevated walkways. Three points of contact on ladders. Stop work if any rail is damaged, missing, or unsafe.", type: "eng" },
-    { text: "Heater treater ignition follows operator-specific procedure. Other hot work (welding, cutting, grinding) requires separate hot work permit and is not authorized under this JSA.", type: "admin" },
-    { text: "Defensive driving practices to and from location. Seatbelts in use. No phone while driving. Adequate rest before long drives.", type: "admin" }
+    {
+      text: "Pre-job safety meeting completed and documented",
+      type: "admin",
+      elaboration: "The pre-job safety meeting is where the crew aligns on today's work, today's hazards, and today's plan. It's also the legal record that hazards were communicated. Without it, no one can prove the crew was briefed on what could go wrong."
+    },
+    {
+      text: "Stop Work Authority communicated to all crew",
+      type: "admin",
+      elaboration: "Every crew member needs to know they can stop the job if they see something unsafe, without fear of being punished. If this hasn't been said out loud, new hands won't speak up when they should."
+    },
+    {
+      text: "All non-essential personnel kept clear of pressure work zones",
+      type: "admin",
+      elaboration: "When iron is under pressure, the work zone is for essential personnel only. Extra bodies create more potential injuries during a release event. Keep the zone small and the people in it minimal."
+    },
+    {
+      text: "Pressure verified at zero before any iron disconnection",
+      type: "admin",
+      elaboration: "Trapped pressure between two closures will eject components when iron is broken. Verify zero on a gauge, bleed it down to a safe location, verify zero again. This is a sequence, not a single step."
+    },
+    {
+      text: "Hammer unions properly seated and pinned",
+      type: "eng",
+      elaboration: "A hammer union that isn't fully seated or has a missing pin will let go under pressure. The pin is the difference between a controlled connection and a flying piece of iron. Check every connection during assembly."
+    },
+    {
+      text: "Lines restrained per operator spec",
+      type: "eng",
+      elaboration: "Flow iron carries enough stored energy to whip violently if a connection fails. Restraints (typically cable or chain tied to fixed anchor points) limit how far the line can travel during a release. Without them, the line goes wherever the pressure sends it."
+    },
+    {
+      text: "Bonding and grounding verified on all flowback equipment and vessels",
+      type: "eng",
+      elaboration: "Hydrocarbon flow generates static electricity. Without bonding (connecting equipment electrically) and grounding (path to earth), static can build up and discharge as a spark in a flammable atmosphere. This is how flowback locations catch fire."
+    },
+    {
+      text: "Continuous gas monitoring (4-gas) at work area",
+      type: "eng",
+      elaboration: "A 4-gas monitor reads O2, LEL, H2S, and CO. Continuous monitoring means it's running during work, not just checked once. The monitor is your early warning before anyone notices a leak."
+    },
+    {
+      text: "Wind direction noted, briefing oriented to upwind muster",
+      type: "admin",
+      elaboration: "If H2S or hydrocarbon vapor releases, wind decides who's exposed. The muster point must be upwind of the release source. Wind direction needs to be checked at the start of every shift and any time the briefing changes."
+    },
+    {
+      text: "Spill kit on site and location communicated",
+      type: "admin",
+      elaboration: "When fluid hits the ground, every minute matters. The spill kit needs to be on location before work starts, and every crew member needs to know where it is without having to ask."
+    },
+    {
+      text: "Berms / secondary containment verified",
+      type: "eng",
+      elaboration: "Berms and containment catch spills before they reach soil or water. A breach in a berm means the next spill goes off-location. Walk the perimeter at the start of the shift to verify integrity."
+    },
+    {
+      text: "Fire extinguishers staged and inspected",
+      type: "eng",
+      elaboration: "Fire extinguishers are useless if they're empty, expired, or located 200 feet from the fire. Check the gauge, check the date, confirm location is accessible from the work area."
+    },
+    {
+      text: "Communication plan (radio, hand signals) confirmed",
+      type: "admin",
+      elaboration: "When the iron is loud and the crew is spread out, verbal communication fails. The plan needs to cover both normal communication and emergency signals. Test the radios before work starts."
+    },
+    {
+      text: "Lockout/tagout applied to all energy sources before maintenance or iron change-out (mechanical, electrical, hydraulic, pneumatic)",
+      type: "eng",
+      elaboration: "Energy stored in any form can release when equipment is opened. Mechanical (springs, gravity), electrical (capacitors, batteries), hydraulic (pressurized lines), pneumatic (compressed air). Every source gets isolated and verified at zero before work begins."
+    },
+    {
+      text: "Guard rails inspected and intact on tanks, separators, and elevated walkways. Three points of contact on ladders. Stop work if any rail is damaged, missing, or unsafe.",
+      type: "eng",
+      elaboration: "Guard rails are the engineering control that prevents falls from elevation. They work passively, no harness required, as long as they're intact. A damaged or missing rail means the fall protection is broken. Stop work, address it, then continue."
+    },
+    {
+      text: "Heater treater ignition follows operator-specific procedure. Other hot work (welding, cutting, grinding) requires separate hot work permit and is not authorized under this JSA.",
+      type: "admin",
+      elaboration: "Heater treater lighting is part of routine flowback and follows the operator's written ignition procedure. Welding, cutting, and grinding produce additional sparks and require a separate hot work permit with atmospheric testing. They're not authorized under this JSA without that permit."
+    },
+    {
+      text: "Defensive driving practices to and from location. Seatbelts in use. No phone while driving. Adequate rest before long drives.",
+      type: "admin",
+      elaboration: "Highway vehicle incidents are statistically the most dangerous part of the oilfield workday. About 40% of industry fatalities are vehicle-related. The drive matters as much as the work."
+    }
   ],
   ppe: [
-    { text: "Hard hat", core: true },
-    { text: "Safety glasses (impact-rated)", core: true },
-    { text: "FR coveralls or FR layered clothing", core: true },
-    { text: "Steel-toe boots (lace-up, ANSI-rated)", core: true },
-    { text: "Cut-resistant / impact gloves", core: true },
-    { text: "Hearing protection (within 50 ft of flow iron)", core: false },
-    { text: "Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)", core: true },
-    { text: "H2S escape pack / SCBA available on site", core: false }
+    {
+      text: "Hard hat",
+      core: true,
+      elaboration: "Protects the head from dropped objects, swinging equipment, and contact with overhead pipe. The most basic PPE on any oilfield location."
+    },
+    {
+      text: "Safety glasses (impact-rated)",
+      core: true,
+      elaboration: "Protects eyes from fluid splashes, debris, and produced solids. Impact-rated means rated for high-velocity small particles. Reading glasses don't qualify."
+    },
+    {
+      text: "FR coveralls or FR layered clothing",
+      core: true,
+      elaboration: "Flame-resistant clothing won't ignite from a flash fire. In a flowback location with hydrocarbon vapor potential, this is the layer between the worker and a survivable burn."
+    },
+    {
+      text: "Steel-toe boots (lace-up, ANSI-rated)",
+      core: true,
+      elaboration: "Protects feet from dropped tools, equipment skids, and crush injuries. Lace-up means firmly secured to the foot (slip-ons can come off in mud or during quick movement). ANSI rating confirms the steel toe meets impact standards."
+    },
+    {
+      text: "Cut-resistant / impact gloves",
+      core: true,
+      elaboration: "Hands take more incidental contact than any other part of the body on a flowback location. Cut-resistant material protects from sharp edges and pinch points. Impact protection covers the knuckles."
+    },
+    {
+      text: "Hearing protection (within 50 ft of flow iron)",
+      core: false,
+      elaboration: "Flowback equipment commonly exceeds 95 dB. Hearing damage is cumulative and not reversible. Use foam plugs, earmuffs, or both when working within 50 feet of running iron."
+    },
+    {
+      text: "Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)",
+      core: true,
+      elaboration: "The monitor needs to read the air you're actually breathing. Worn within 6 inches of the breathing zone (typically clipped to the collar or shirt pocket), not at the belt. A monitor in the wrong location won't detect the threat in time."
+    },
+    {
+      text: "H2S escape pack / SCBA available on site",
+      core: false,
+      elaboration: "An escape pack lets a worker reach safe air during an H2S release. SCBA (Self-Contained Breathing Apparatus) is needed for work in atmospheres that already exceed safe limits. Required when H2S is suspected or confirmed."
+    }
   ],
   routineSteps: [
     {
@@ -200,17 +300,15 @@ const FLOWBACK_TEMPLATE = {
 // ============== TEMPLATE VERSION ==============
 // Bump when the template content changes. Stored on every JSA so we know
 // which version of the template a record was created against.
-const TEMPLATE_VERSION = "flowback-v0.2.0";
+const TEMPLATE_VERSION = "flowback-v0.3.0";
 
 // ============== H2S TIER CONFIG ==============
 // Industry-standard API Condition system. Drives the educational panel and
 // the auto-marking of PPE and controls on the JSA form.
 //
-// Sources: OSHA general industry standard (29 CFR 1910.1000 Table Z-2),
-// OSHA construction standard (29 CFR 1926.55 Appendix A),
-// NIOSH IDLH (100 ppm), NIOSH REL (10 ppm),
-// API onshore/offshore RP guidance, and operator policies including
-// Devon, BP, and similar majors.
+// Sources: NIOSH REL (10 ppm), NIOSH IDLH (100 ppm),
+// ACGIH STEL (5 ppm), API onshore/offshore RP guidance,
+// and operator policies including Devon, BP, and similar majors.
 //
 // Edit thresholds or wording here; the form rerenders accordingly.
 const H2S_TIERS = {
@@ -237,7 +335,7 @@ const H2S_TIERS = {
     range: "10 to 30 ppm",
     info: {
       title: "API Condition II · Moderate hazard",
-      body: "OSHA general industry ceiling is 20 ppm. Continuous gas monitoring required. Escape pack must be accessible. Oxygen resuscitator on location per API. Headaches, nausea, and respiratory irritation can occur with prolonged exposure."
+      body: "Industry-recognized 8-hour ceiling is 20 ppm. Continuous gas monitoring required. Escape pack must be accessible. Oxygen resuscitator on location per API. Headaches, nausea, and respiratory irritation can occur with prolonged exposure."
     },
     addControls: [
       "H2S escape packs accessible to all personnel",
@@ -283,7 +381,7 @@ const FACTS = [
   // ---- OSHA stats ----
   "Between 2013 and 2017, 489 U.S. oil and gas extraction workers were killed on the job.",
   "About 40% of oilfield worker fatalities involve highway vehicle incidents on the drive to or from location.",
-  "OSHA's action level for noise exposure is 85 dB averaged over 8 hours. Most flowback equipment runs above 95 dB at the work area.",
+  "The industry-recognized action level for noise exposure is 85 dB averaged over 8 hours. Most flowback equipment runs above 95 dB at the work area.",
   "Slips, trips, and falls account for the largest share of oilfield injuries by category.",
   "Most oilfield worker fatalities involve people with less than 5 years of industry experience.",
   "OSHA's 2026 maximum penalty for a serious violation is $16,550 per violation. Willful or repeat violations can reach $165,514. Penalties are adjusted annually for inflation.",
@@ -612,42 +710,69 @@ function openJsaForm(job) {
 
 function populateControlsList() {
   if (!currentTemplate) return;
-  controlsList.className = "checkbox-list";
+  controlsList.className = "checkbox-list with-elaborations";
   controlsList.innerHTML = "";
   currentTemplate.controls.forEach((c, idx) => {
     if (!(idx in controlsState)) {
-      controlsState[idx] = { checked: true, overrideReason: null };
+      // Default unchecked. User must actively confirm each control applies.
+      controlsState[idx] = { checked: false, overrideReason: null, expanded: false };
     }
     const tag = c.type === "eng" ? "ENGINEERING" : c.type === "admin" ? "ADMIN" : "PPE";
     const li = document.createElement("li");
-    li.className = "checkbox-item" + (controlsState[idx].checked ? "" : " unchecked");
+    li.className = "checkbox-item expandable" + (controlsState[idx].checked ? " checked" : "");
     li.innerHTML = `
-      <input type="checkbox" ${controlsState[idx].checked ? "checked" : ""} />
-      <span class="checkbox-item-text">${escapeHtml(c.text)}<span class="hierarchy-tag">${tag}</span></span>
+      <div class="checkbox-item-row">
+        <input type="checkbox" ${controlsState[idx].checked ? "checked" : ""} />
+        <button type="button" class="checkbox-item-text-btn" aria-expanded="false">
+          <span class="checkbox-item-text">${escapeHtml(c.text)}<span class="hierarchy-tag">${tag}</span></span>
+          <svg class="elab-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="item-elaboration" hidden>
+        <span class="elaboration-label">Why this matters</span>
+        ${escapeHtml(c.elaboration || "")}
+      </div>
     `;
     const cb = li.querySelector("input");
+    const expandBtn = li.querySelector(".checkbox-item-text-btn");
+    const elab = li.querySelector(".item-elaboration");
+
     cb.addEventListener("change", () => {
       controlsState[idx].checked = cb.checked;
-      li.classList.toggle("unchecked", !cb.checked);
+      li.classList.toggle("checked", cb.checked);
+      updateCollapseCounts();
+    });
+
+    expandBtn.addEventListener("click", () => {
+      const expanded = li.classList.toggle("expanded");
+      elab.hidden = !expanded;
+      expandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+      if (expanded) controlsState[idx].expanded = true;  // track engagement
     });
     controlsList.appendChild(li);
   });
 }
 
 function populateStandardLists(template) {
+  // Pick one random hazard to show pre-expanded as anti-complacency nudge
+  pickHighlightedHazard();
+
   // Render hazards as tappable items with elaboration
   hazardsList.innerHTML = "";
   template.hazards.forEach((hazard, idx) => {
+    const isHighlighted = idx === highlightedHazardIdx;
     const li = document.createElement("li");
-    li.className = "hazard-item";
+    li.className = "hazard-item" + (isHighlighted ? " expanded" : "");
     li.innerHTML = `
-      <button type="button" class="hazard-head" aria-expanded="false">
+      <button type="button" class="hazard-head" aria-expanded="${isHighlighted ? "true" : "false"}">
         <svg class="hazard-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
           <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-        <span class="hazard-text">${escapeHtml(hazard.text)}</span>
+        <span class="hazard-text">${escapeHtml(hazard.text)}${isHighlighted ? '<span class="hazard-reminder-tag">REMINDER</span>' : ''}</span>
       </button>
-      <div class="hazard-elaboration" hidden>
+      <div class="hazard-elaboration" ${isHighlighted ? "" : "hidden"}>
         <span class="elaboration-label">What can actually happen</span>
         ${escapeHtml(hazard.elaboration)}
       </div>
@@ -665,48 +790,54 @@ function populateStandardLists(template) {
   // Render controls as checkboxes (all start checked)
   populateControlsList();
 
-  // Render PPE as checkboxes. Core items show a soft floor: unchecking
-  // them prompts for a justification reason.
-  ppeList.className = "checkbox-list";
+  // Render PPE as expandable checkbox rows. Default unchecked. User actively
+  // checks each item that applies. Core items must be checked to submit.
+  ppeList.className = "checkbox-list with-elaborations";
   ppeList.innerHTML = "";
   template.ppe.forEach((p, idx) => {
     if (!(idx in ppeState)) {
-      ppeState[idx] = { checked: true, overrideReason: null };
+      ppeState[idx] = { checked: false, overrideReason: null, expanded: false };
     }
     const isCore = !!p.core;
     const li = document.createElement("li");
-    li.className = "checkbox-item" + (isCore ? " core-required" : "") + (ppeState[idx].checked ? "" : " unchecked");
+    li.className = "checkbox-item expandable" + (isCore ? " core-required" : "") + (ppeState[idx].checked ? " checked" : "");
     li.innerHTML = `
-      <input type="checkbox" ${ppeState[idx].checked ? "checked" : ""} />
-      <span class="checkbox-item-text">${escapeHtml(p.text)}${isCore ? '<span class="core-required-tag">CORE</span>' : ''}</span>
+      <div class="checkbox-item-row">
+        <input type="checkbox" ${ppeState[idx].checked ? "checked" : ""} />
+        <button type="button" class="checkbox-item-text-btn" aria-expanded="false">
+          <span class="checkbox-item-text">${escapeHtml(p.text)}${isCore ? '<span class="core-required-tag">CORE</span>' : ''}</span>
+          <svg class="elab-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="item-elaboration" hidden>
+        <span class="elaboration-label">Why this matters</span>
+        ${escapeHtml(p.elaboration || "")}
+      </div>
     `;
     const cb = li.querySelector("input");
+    const expandBtn = li.querySelector(".checkbox-item-text-btn");
+    const elab = li.querySelector(".item-elaboration");
+
     cb.addEventListener("change", () => {
-      if (!cb.checked && isCore && !ppeState[idx].overrideReason) {
-        // Open the soft-floor override modal
-        cb.checked = true; // revert until they confirm
-        openPpeOverrideModal(idx, p.text, () => {
-          ppeState[idx].checked = false;
-          cb.checked = false;
-          li.classList.add("unchecked");
-          renderOverrideReasonOnItem(li, ppeState[idx].overrideReason);
-        });
-        return;
-      }
       ppeState[idx].checked = cb.checked;
-      li.classList.toggle("unchecked", !cb.checked);
-      // If re-checking a core item, clear any override reason
-      if (cb.checked && ppeState[idx].overrideReason) {
-        ppeState[idx].overrideReason = null;
-        const r = li.querySelector(".override-reason-display");
-        if (r) r.remove();
-      }
+      li.classList.toggle("checked", cb.checked);
+      updateCollapseCounts();
     });
-    if (ppeState[idx].overrideReason) {
-      renderOverrideReasonOnItem(li, ppeState[idx].overrideReason);
-    }
+
+    expandBtn.addEventListener("click", () => {
+      const expanded = li.classList.toggle("expanded");
+      elab.hidden = !expanded;
+      expandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+      if (expanded) ppeState[idx].expanded = true;  // track engagement
+    });
+
     ppeList.appendChild(li);
   });
+
+  // Update count displays now that everything's rendered
+  updateCollapseCounts();
 
   // Render routine steps (always visible)
   if (routineStepsList) {
@@ -1016,6 +1147,62 @@ function escapeHtml(s) {
   }[m]));
 }
 
+// ============== COLLAPSIBLE SECTIONS ==============
+// Hazards, controls, and PPE start collapsed. User taps the header to expand.
+function setupCollapsibles() {
+  const collapsibles = [
+    { headerId: "hazards-collapse-header",  listId: "hazards-list"  },
+    { headerId: "controls-collapse-header", listId: "controls-list" },
+    { headerId: "ppe-collapse-header",      listId: "ppe-list"      }
+  ];
+  collapsibles.forEach(({ headerId, listId }) => {
+    const header = document.getElementById(headerId);
+    const list = document.getElementById(listId);
+    if (!header || !list) return;
+    header.addEventListener("click", () => {
+      const expanded = header.getAttribute("aria-expanded") === "true";
+      const newState = !expanded;
+      header.setAttribute("aria-expanded", newState ? "true" : "false");
+      list.hidden = !newState;
+      header.classList.toggle("expanded", newState);
+    });
+  });
+}
+
+// Update the count display on each collapse header
+function updateCollapseCounts() {
+  if (!currentTemplate) return;
+
+  const hazardCount = currentTemplate.hazards.length;
+  const hazardsCountEl = document.getElementById("hazards-collapse-count");
+  if (hazardsCountEl) hazardsCountEl.textContent = `${hazardCount} hazards`;
+
+  const ctlTotal = currentTemplate.controls.length;
+  const ctlChecked = Object.values(controlsState).filter(s => s.checked).length;
+  const ctlEl = document.getElementById("controls-collapse-count");
+  if (ctlEl) ctlEl.textContent = `${ctlChecked} of ${ctlTotal} checked`;
+
+  const ppeTotal = currentTemplate.ppe.length;
+  const ppeChecked = Object.values(ppeState).filter(s => s.checked).length;
+  const ppeEl = document.getElementById("ppe-collapse-count");
+  if (ppeEl) ppeEl.textContent = `${ppeChecked} of ${ppeTotal} checked`;
+}
+
+// Initialize collapsibles on page load
+setupCollapsibles();
+
+// ============== ANTI-COMPLACENCY REMINDER ==============
+// Pick one random hazard to show pre-expanded each time the JSA opens.
+// Different hazard each shift, even on day 90 of the same job, breaks autopilot.
+let highlightedHazardIdx = null;
+
+function pickHighlightedHazard() {
+  if (!currentTemplate || !currentTemplate.hazards.length) return null;
+  const idx = Math.floor(Math.random() * currentTemplate.hazards.length);
+  highlightedHazardIdx = idx;
+  return idx;
+}
+
 // Fact banner shuffle button
 if (factShuffleBtn) {
   factShuffleBtn.addEventListener("click", () => {
@@ -1109,11 +1296,12 @@ function refreshControlsForTier(tierKey) {
     const startIdx = currentTemplate.controls.length;
     tier.addControls.forEach((controlText, offset) => {
       const idx = startIdx + offset;
-      controlsState[idx] = { checked: true, overrideReason: null };
+      controlsState[idx] = { checked: false, overrideReason: null, expanded: false };
       tierAddedControls.push(idx);
       appendTierControlToList(idx, controlText, tierKey);
     });
   }
+  updateCollapseCounts();
 }
 
 function appendTierControlToList(idx, controlText, tierKey) {
@@ -1121,35 +1309,21 @@ function appendTierControlToList(idx, controlText, tierKey) {
                   : tierKey === "cond2" ? "H2S COND II"
                   : "H2S";
   const li = document.createElement("li");
-  li.className = "checkbox-item core-required";
+  li.className = "checkbox-item expandable core-required";
   li.dataset.tierIdx = idx;
   li.innerHTML = `
-    <input type="checkbox" checked />
-    <span class="checkbox-item-text">${escapeHtml(controlText)}<span class="core-required-tag">${tierBadge}</span></span>
+    <div class="checkbox-item-row">
+      <input type="checkbox" />
+      <button type="button" class="checkbox-item-text-btn" aria-expanded="false">
+        <span class="checkbox-item-text">${escapeHtml(controlText)}<span class="core-required-tag">${tierBadge}</span></span>
+      </button>
+    </div>
   `;
   const cb = li.querySelector("input");
   cb.addEventListener("change", () => {
-    if (!cb.checked) {
-      // Open the same override modal pattern used for core PPE
-      cb.checked = true; // revert until they confirm
-      openPpeOverrideModal(idx, controlText, () => {
-        if (controlsState[idx]) {
-          controlsState[idx].checked = false;
-          controlsState[idx].overrideReason = ppeOverrideReason.value.trim();
-        }
-        cb.checked = false;
-        li.classList.add("unchecked");
-        renderOverrideReasonOnItem(li, ppeOverrideReason.value.trim());
-      });
-      return;
-    }
     controlsState[idx].checked = cb.checked;
-    li.classList.toggle("unchecked", !cb.checked);
-    if (cb.checked && controlsState[idx].overrideReason) {
-      controlsState[idx].overrideReason = null;
-      const r = li.querySelector(".override-reason-display");
-      if (r) r.remove();
-    }
+    li.classList.toggle("checked", cb.checked);
+    updateCollapseCounts();
   });
   controlsList.appendChild(li);
 }
@@ -1158,8 +1332,8 @@ function refreshPpeRequirementsForTier(tierKey) {
   const tier = H2S_TIERS[tierKey];
   if (!tier || !currentTemplate) return;
 
-  // Find PPE items whose text matches the tier's requirePpe list, mark them
-  // as required (core-required) in the UI. Already-core items don't change.
+  // Mark tier-required PPE items as core-required so submit validation catches
+  // them if unchecked. Don't auto-check, the user actively confirms each item.
   currentTemplate.ppe.forEach((p, idx) => {
     const text = typeof p === "string" ? p : (p.text || "");
     const shouldBeRequired = tier.requirePpe.includes(text);
@@ -1168,23 +1342,20 @@ function refreshPpeRequirementsForTier(tierKey) {
 
     if (shouldBeRequired) {
       li.classList.add("core-required");
-      // Ensure the badge is present
+      // Ensure the badge is present and tagged for H2S tier
       if (!li.querySelector(".core-required-tag")) {
         const span = li.querySelector(".checkbox-item-text");
-        if (span && !span.innerHTML.includes("CORE")) {
+        if (span) {
           span.insertAdjacentHTML("beforeend", '<span class="core-required-tag">REQUIRED · H2S TIER</span>');
         }
       }
-      // Make sure it's checked
-      const cb = li.querySelector("input[type=checkbox]");
-      if (cb && !cb.checked) {
-        cb.checked = true;
-        if (controlsState[idx]) controlsState[idx].checked = true;
-        li.classList.remove("unchecked");
+      // Mark in state so submit validation knows this is required
+      if (!p.core) {
+        p.core = true;  // tier escalates this to core for this JSA
       }
-      if (ppeState[idx]) ppeState[idx].checked = true;
     }
   });
+  updateCollapseCounts();
 }
 
 // Free-text interview answer
@@ -1746,6 +1917,22 @@ submitJsaBtn.addEventListener("click", async () => {
       return;
     }
   }
+
+  // All core PPE items must be checked before submission. These are the
+  // baseline PPE that always applies to flowback work.
+  if (currentTemplate && currentTemplate.ppe) {
+    const missingCorePpe = [];
+    currentTemplate.ppe.forEach((p, idx) => {
+      if (p.core && (!ppeState[idx] || !ppeState[idx].checked)) {
+        missingCorePpe.push(p.text);
+      }
+    });
+    if (missingCorePpe.length > 0) {
+      showToast(`Required PPE not checked: ${missingCorePpe[0]}${missingCorePpe.length > 1 ? ` (+${missingCorePpe.length - 1} more)` : ""}`, "error");
+      return;
+    }
+  }
+
   if (signedCrew.length === 0) {
     showToast("At least one crew member must sign the JSA before submitting", "error");
     return;
