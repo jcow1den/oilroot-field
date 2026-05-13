@@ -291,6 +291,30 @@
           <span class="spec-label">Muster point <span class="spec-required">·  REQUIRED</span></span>
           <input type="text" id="jsa-muster" class="field" placeholder="e.g., NE corner of pad, by the lighting tower" />
         </label>
+
+        <div class="emergency-info-block">
+          <p class="spec-label">Emergency information (optional, but encouraged)</p>
+          <label class="field-group">
+            <span class="spec-label">Emergency contact numbers</span>
+            <input type="text" id="jsa-emergency-phone" class="field" placeholder="e.g., 911 + operator emergency line" />
+          </label>
+          <label class="field-group">
+            <span class="spec-label">First aid kit location</span>
+            <input type="text" id="jsa-first-aid-loc" class="field" placeholder="e.g., Inside the office trailer, north wall" />
+          </label>
+          <label class="field-group">
+            <span class="spec-label">AED location (if any)</span>
+            <input type="text" id="jsa-aed-loc" class="field" placeholder="e.g., Mounted on office trailer exterior, or N/A" />
+          </label>
+          <label class="field-group">
+            <span class="spec-label">Wind sock / direction indicator location</span>
+            <input type="text" id="jsa-windsock-loc" class="field" placeholder="e.g., NW corner of pad, top of lighting tower" />
+          </label>
+          <label class="field-group">
+            <span class="spec-label">Helicopter landing zone (if applicable)</span>
+            <input type="text" id="jsa-helo-lz" class="field" placeholder="e.g., 200 ft SE of pad, marked with cones, or N/A" />
+          </label>
+        </div>
       </div>
 
       <!-- Section 02: Standard items -->
@@ -363,9 +387,24 @@
         </div>
 
         <div id="exception-area" class="exception-area" hidden>
+          <p class="section-blurb">
+            All four fields are required when flagging an exception. This creates a clear audit trail.
+          </p>
           <label class="field-group">
             <span class="spec-label">What's different from standard?</span>
-            <textarea id="exception-text" class="field textarea" rows="3" placeholder="e.g., H2S monitor failed bump test, working off backup. Spill kit moved to new location, briefed crew."></textarea>
+            <textarea id="exception-text" class="field textarea" rows="3" placeholder="e.g., H2S monitor failed bump test."></textarea>
+          </label>
+          <label class="field-group">
+            <span class="spec-label">Workaround in place</span>
+            <textarea id="exception-workaround" class="field textarea" rows="2" placeholder="e.g., Working off backup monitor, calibrated 3 hours ago. Original sent for repair."></textarea>
+          </label>
+          <label class="field-group">
+            <span class="spec-label">Who approved the workaround?</span>
+            <input type="text" id="exception-approver" class="field" placeholder="e.g., John Smith, Operations Supervisor" />
+          </label>
+          <label class="field-group">
+            <span class="spec-label">Stop work threshold for this exception</span>
+            <textarea id="exception-stopwork" class="field textarea" rows="2" placeholder="e.g., If backup monitor alarms, stop work immediately and contact supervisor."></textarea>
           </label>
         </div>
       </div>
