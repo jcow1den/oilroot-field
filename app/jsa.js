@@ -16,6 +16,7 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
   collection,
+  collectionGroup,
   addDoc,
   getDocs,
   doc,
@@ -38,14 +39,58 @@ const db   = getFirestore(app);
 
 // ============== CURRENT USER (set by auth observer) ==============
 let currentUser = null;
+let isCurrentUserAdmin = false;  // Set after auth state change; true if user has isAdmin flag
+let adminViewMode = false;        // When true, loadPastJsas shows all users' JSAs
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   currentUser = user || null;
+  isCurrentUserAdmin = false;
+  adminViewMode = false;
+  hideAdminToggle();
   if (user) {
+    // Check admin status by reading the user doc
+    try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists() && userDoc.data().isAdmin === true) {
+        isCurrentUserAdmin = true;
+        showAdminToggle();
+      }
+    } catch (err) {
+      console.warn("Admin status check failed:", err);
+    }
     // Load past JSAs whenever a user is signed in
     loadPastJsas();
   }
 });
+
+// Admin toggle UI helpers; the toggle itself is built lazily in showAdminToggle
+function showAdminToggle() {
+  let toggle = document.getElementById("admin-view-toggle");
+  if (!toggle) {
+    toggle = document.createElement("button");
+    toggle.id = "admin-view-toggle";
+    toggle.type = "button";
+    toggle.className = "admin-view-toggle";
+    toggle.innerHTML = `<span class="admin-badge">ADMIN</span><span class="admin-toggle-label">View: My JSAs</span>`;
+    // Insert into the header. Find the "New JSA" button container or similar.
+    const headerContainer = document.querySelector(".past-header-row") || document.querySelector(".content-header") || document.body;
+    if (headerContainer && headerContainer.parentElement) {
+      headerContainer.parentElement.insertBefore(toggle, headerContainer.nextSibling);
+    }
+    toggle.addEventListener("click", () => {
+      adminViewMode = !adminViewMode;
+      toggle.querySelector(".admin-toggle-label").textContent = adminViewMode ? "View: All users" : "View: My JSAs";
+      toggle.classList.toggle("admin-view-active", adminViewMode);
+      loadPastJsas();
+    });
+  }
+  toggle.hidden = false;
+}
+
+function hideAdminToggle() {
+  const toggle = document.getElementById("admin-view-toggle");
+  if (toggle) toggle.hidden = true;
+}
 
 // ============== JOB TYPES ==============
 const JOB_TYPES = [
@@ -810,6 +855,7 @@ let exceptionFlagged = false;    // Has the user opened the exception path?
 let editMode        = false;     // Are we editing an existing JSA?
 let editingDocId    = null;      // Doc ID of the JSA being edited
 let editingOriginal = null;      // Original data of the JSA being edited (for revision history)
+let editingOwnerUid = null;      // UID of the JSA owner (differs from currentUser when admin edits another's)
 let detailDocId     = null;      // Currently-viewed JSA in the detail view
 
 // Interview question answers
@@ -910,6 +956,7 @@ function openJsaForm(job) {
   editMode = false;
   editingDocId = null;
   editingOriginal = null;
+  editingOwnerUid = null;
   revisionReasonSection.hidden = true;
   formModeLabel.textContent = "NEW JSA · STEP 2 OF 2";
   formModeSub.textContent = "Pre-job hazard analysis. Smart defaults pre-loaded. Spend your attention on what's specific to today.";
@@ -2533,17 +2580,31 @@ async function saveRevision(reason) {
 
     const newRevisionCount = (editingOriginal.revisionCount || 0) + 1;
 
-    const docRef = doc(db, "users", currentUser.uid, "jsas", editingDocId);
-    await updateDoc(docRef, {
+    // Use the editing owner's UID, which differs from currentUser if admin is
+    // editing another user's JSA. Admin edits get tagged for the audit trail.
+    const targetUid = editingOwnerUid || currentUser.uid;
+    const isAdminEdit = isCurrentUserAdmin && targetUid !== currentUser.uid;
+
+    const docRef = doc(db, "users", targetUid, "jsas", editingDocId);
+    const updatePayload = {
       ...newValues,
       revisionCount: newRevisionCount,
       revisions: arrayUnion(revision)
-    });
+    };
 
-    showToast("Revision saved · audit trail updated", "success");
+    // Tag admin edits per Firestore rules requirement
+    if (isAdminEdit) {
+      updatePayload.editedByAdmin = true;
+      updatePayload.editedByAdminUid = currentUser.uid;
+      updatePayload.editedByAdminAt = serverTimestamp();
+    }
+
+    await updateDoc(docRef, updatePayload);
+
+    showToast(isAdminEdit ? "Admin revision saved · audit trail updated" : "Revision saved · audit trail updated", "success");
     resetJsaForm();
     // Reload detail view with the updated data
-    await openJsaDetail(editingDocId);
+    await openJsaDetail(editingDocId, isAdminEdit ? targetUid : null);
     await loadPastJsas();
   } catch (err) {
     console.error("Revision save error:", err);
@@ -2606,11 +2667,19 @@ function buildJsaRecord({ location }) {
     tierAddedControlsCount: tierControls.length
   } : null;
 
+  // When admin edits another user's JSA, preserve the original owner's identity
+  // on the record. The audit trail captures who actually performed the edit via
+  // editedByAdmin flag set in the save logic.
+  const isAdminEditingOther = isCurrentUserAdmin && editMode && editingOwnerUid && editingOwnerUid !== currentUser.uid;
+  const identityUid = isAdminEditingOther ? (editingOriginal?.userId || editingOwnerUid) : currentUser.uid;
+  const identityEmail = isAdminEditingOther ? (editingOriginal?.userEmail || "") : currentUser.email;
+  const identityName = isAdminEditingOther ? (editingOriginal?.userDisplayName || "") : (currentUser.displayName || "");
+
   return {
-    // Identity
-    userId:        currentUser.uid,
-    userEmail:     currentUser.email,
-    userDisplayName: currentUser.displayName || "",
+    // Identity (preserved for admin edits of other users' JSAs)
+    userId:        identityUid,
+    userEmail:     identityEmail,
+    userDisplayName: identityName,
 
     // Job info
     jobTypeId:     currentJob.id,
@@ -2707,19 +2776,31 @@ async function loadPastJsas() {
 
   pastJsasList.innerHTML = `
     <div class="empty-state">
-      <p class="empty-text">Loading past JSAs...</p>
+      <p class="empty-text">${adminViewMode ? "Loading all users' JSAs..." : "Loading past JSAs..."}</p>
     </div>
   `;
 
   try {
-    const colRef = collection(db, "users", currentUser.uid, "jsas");
-    const q = query(colRef, orderBy("createdAt", "desc"));
+    let q;
+    let isAdminQuery = false;
+
+    if (adminViewMode && isCurrentUserAdmin) {
+      // Admin view: query across all users' jsas subcollections
+      const cgRef = collectionGroup(db, "jsas");
+      q = query(cgRef, orderBy("createdAt", "desc"), limit(100));
+      isAdminQuery = true;
+    } else {
+      // Normal view: query current user's jsas
+      const colRef = collection(db, "users", currentUser.uid, "jsas");
+      q = query(colRef, orderBy("createdAt", "desc"));
+    }
+
     const snap = await getDocs(q);
 
     if (snap.empty) {
       pastJsasList.innerHTML = `
         <div class="empty-state">
-          <p class="empty-text">No JSAs yet. Your submitted JSAs will appear here.</p>
+          <p class="empty-text">${adminViewMode ? "No JSAs found across any users." : "No JSAs yet. Your submitted JSAs will appear here."}</p>
         </div>
       `;
       pastJsasCount.hidden = true;
@@ -2727,12 +2808,47 @@ async function loadPastJsas() {
     }
 
     pastJsasCount.hidden = false;
-    pastJsasCount.textContent = `${snap.size} TOTAL`;
+    pastJsasCount.textContent = isAdminQuery
+      ? `${snap.size} ACROSS ALL USERS`
+      : `${snap.size} TOTAL`;
 
     pastJsasList.innerHTML = "";
+    // For admin view, batch-fetch user info for each unique uid to show names
+    const userInfoCache = {};
+    if (isAdminQuery) {
+      const uniqueUids = new Set();
+      snap.forEach(s => {
+        // collectionGroup query: path is users/{uid}/jsas/{jsaId}
+        const pathParts = s.ref.path.split("/");
+        if (pathParts[0] === "users" && pathParts[1]) {
+          uniqueUids.add(pathParts[1]);
+        }
+      });
+      for (const uid of uniqueUids) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", uid));
+          if (userDoc.exists()) {
+            const u = userDoc.data();
+            userInfoCache[uid] = u.email || u.displayName || uid.slice(0, 8);
+          } else {
+            userInfoCache[uid] = uid.slice(0, 8);
+          }
+        } catch {
+          userInfoCache[uid] = uid.slice(0, 8);
+        }
+      }
+    }
+
     snap.forEach((docSnap) => {
       const data = docSnap.data();
-      const card = renderPastJsaCard(docSnap.id, data);
+      let ownerLabel = null;
+      let ownerUid = null;
+      if (isAdminQuery) {
+        const pathParts = docSnap.ref.path.split("/");
+        ownerUid = pathParts[1];
+        ownerLabel = userInfoCache[ownerUid] || ownerUid.slice(0, 8);
+      }
+      const card = renderPastJsaCard(docSnap.id, data, { ownerLabel, ownerUid });
       pastJsasList.appendChild(card);
     });
   } catch (err) {
@@ -2746,16 +2862,20 @@ async function loadPastJsas() {
   }
 }
 
-function renderPastJsaCard(docId, data) {
+function renderPastJsaCard(docId, data, options = {}) {
   const card = document.createElement("button");
   card.type = "button";
-  card.className = "past-jsa-card";
+  card.className = "past-jsa-card" + (options.ownerLabel ? " admin-card" : "");
 
   const dateLabel = formatDateLabel(data.date, data.createdAt);
   const jobTag = data.jobTypeName || "Unknown job type";
+  const ownerBadge = options.ownerLabel
+    ? `<span class="admin-owner-badge">${escapeHtml(options.ownerLabel)}</span>`
+    : "";
 
   card.innerHTML = `
     <div class="past-jsa-info">
+      ${ownerBadge}
       <span class="past-jsa-location">${escapeHtml(data.location || "Untitled")}</span>
       <div class="past-jsa-meta">
         <span>${escapeHtml(jobTag)}</span>
@@ -2768,7 +2888,7 @@ function renderPastJsaCard(docId, data) {
     </svg>
   `;
 
-  card.addEventListener("click", () => openJsaDetail(docId));
+  card.addEventListener("click", () => openJsaDetail(docId, options.ownerUid));
   return card;
 }
 
@@ -2786,8 +2906,16 @@ function formatDateLabel(dateStr, createdAtTimestamp) {
 }
 
 // ============== JSA DETAIL VIEW ==============
-async function openJsaDetail(docId) {
+// Track which user's JSA is currently being viewed in detail (admin can view other users' JSAs)
+let detailOwnerUid = null;
+
+async function openJsaDetail(docId, ownerUid = null) {
   if (!currentUser) return;
+
+  // If no ownerUid provided, viewing own JSA. If provided, admin viewing another user's.
+  const targetUid = ownerUid || currentUser.uid;
+  detailOwnerUid = targetUid;
+  const isViewingOtherUser = ownerUid && ownerUid !== currentUser.uid;
 
   detailDocId = docId;
   detailJobTitle.textContent = "Loading...";
@@ -2797,7 +2925,7 @@ async function openJsaDetail(docId) {
   navigateTo("jsa-detail");
 
   try {
-    const docRef = doc(db, "users", currentUser.uid, "jsas", docId);
+    const docRef = doc(db, "users", targetUid, "jsas", docId);
     const snap = await getDoc(docRef);
     if (!snap.exists()) {
       detailJobTitle.textContent = "Not found";
@@ -2805,7 +2933,7 @@ async function openJsaDetail(docId) {
       return;
     }
     const data = snap.data();
-    renderDetailView(data);
+    renderDetailView(data, isViewingOtherUser);
     editJsaBtn.hidden = false;
   } catch (err) {
     console.error("Detail load error:", err);
@@ -2845,6 +2973,7 @@ function openJsaForEdit(docId, data) {
   editMode        = true;
   editingDocId    = docId;
   editingOriginal = data;
+  editingOwnerUid = detailOwnerUid || currentUser.uid;
 
   resetJsaForm();
 
@@ -2983,12 +3112,32 @@ function openJsaForEdit(docId, data) {
   setTimeout(initSignaturePad, 50);
 }
 
-function renderDetailView(data) {
+function renderDetailView(data, isViewingOtherUser = false) {
   detailJobTitle.textContent = data.jobTypeName || "Unknown job type";
   detailLocation.textContent = data.location || "—";
   detailStatusLabel.textContent = "SUBMITTED JSA";
 
   const sections = [];
+
+  // Admin viewing banner: when admin is looking at another user's JSA
+  if (isViewingOtherUser) {
+    sections.push(`
+      <div class="admin-viewing-banner">
+        <span class="admin-badge">ADMIN VIEW</span>
+        <span class="admin-viewing-text">You are viewing another user's JSA. Edits will be tagged in the audit trail.</span>
+      </div>
+    `);
+  }
+
+  // If this JSA was admin-edited, show that prominently
+  if (data.editedByAdmin) {
+    sections.push(`
+      <div class="admin-edited-banner">
+        <span class="admin-edited-label">EDITED BY ADMIN</span>
+        <span class="admin-edited-text">This JSA has been edited by an administrator after original submission.</span>
+      </div>
+    `);
+  }
 
   // Section 01: Job site
   const dateLabel = data.date
