@@ -196,12 +196,13 @@
 
         <div class="interview-question">
           <p class="interview-q-label">H2S potential on this well today?</p>
-          <p class="interview-q-hint">API Condition system. Tap to see what each level means.</p>
+          <p class="interview-q-hint">Severity-based tiers. Tap to see what each level means.</p>
           <div class="interview-options interview-h2s" data-question="h2s">
             <button type="button" class="interview-chip" data-value="none">Not present</button>
-            <button type="button" class="interview-chip" data-value="cond1">Condition I <span class="chip-range">below 10 ppm</span></button>
-            <button type="button" class="interview-chip" data-value="cond2">Condition II <span class="chip-range">10 to 30 ppm</span></button>
-            <button type="button" class="interview-chip" data-value="cond3">Condition III <span class="chip-range">above 30 ppm</span></button>
+            <button type="button" class="interview-chip" data-value="trace">Trace, monitor only <span class="chip-range">below 10 ppm</span></button>
+            <button type="button" class="interview-chip" data-value="caution">Caution, alarm range <span class="chip-range">10 to 50 ppm</span></button>
+            <button type="button" class="interview-chip" data-value="danger">Danger, physical effects <span class="chip-range">50 to 100 ppm</span></button>
+            <button type="button" class="interview-chip" data-value="severe">Severe, evacuate <span class="chip-range">above 100 ppm</span></button>
           </div>
           <div id="h2s-info-panel" class="h2s-info-panel" hidden></div>
         </div>
