@@ -64,59 +64,59 @@ const FLOWBACK_TEMPLATE = {
   hazards: [
     {
       text: "High pressure lines and equipment failure",
-      elaboration: "A 2-inch flow line at 5,000 psi has roughly the kinetic energy of a small car at highway speed. When iron lets go, it doesn't drift, it whips. People standing in the wrong spot don't get a second chance to move. That's why we anchor lines, pin hammer unions, and clear the work zone before opening choke."
+      elaboration: "Flow iron carries fluid at thousands of psi during flowback. When a connection fails, released energy whips the line and ejects components at high velocity. Anchoring lines, pinning hammer unions properly, and keeping the work zone clear before pressure operations are the standard controls."
     },
     {
       text: "Trapped pressure / unexpected pressure release",
-      elaboration: "Pressure doesn't disappear when you close a valve. It sits there, stored in fluid and gas, waiting. Disconnecting iron with even a few hundred psi behind it will turn a hammer union into a projectile. Always verify zero on a gauge, then bleed it down, then verify again."
+      elaboration: "Closing a valve does not eliminate pressure between that valve and the next closure. Disconnecting iron with residual pressure can dislodge components forcefully. Standard practice is to verify zero on a gauge, bleed down to a safe location, then verify zero again before breaking any connection."
     },
     {
       text: "H2S exposure (sour gas)",
-      elaboration: "100 ppm causes immediate unconsciousness. 500 ppm kills in 3 minutes. You won't smell it past 100 ppm because it kills your sense of smell first. The wind carries it. The person downwind dies. That's the whole story behind every gas monitor, every wind direction briefing, every muster point."
+      elaboration: "Hydrogen sulfide at 100 ppm causes loss of smell within minutes. At 500 ppm, short exposure can be fatal. H2S is heavier than air and accumulates in low areas. Required controls include continuous gas monitoring, awareness of wind direction, and a defined upwind muster point."
     },
     {
       text: "Hydrocarbon vapor exposure (LEL / explosive atmosphere)",
-      elaboration: "The lower explosive limit is the percentage of hydrocarbon vapor in air below which there's not enough fuel to ignite. Hit 10% of LEL on the monitor and you're at the threshold of trouble. Hit 100% LEL and one spark is all it takes. The cell phone in your back pocket is a spark."
+      elaboration: "The lower explosive limit is the minimum concentration of hydrocarbon vapor in air that will support combustion. Continuous gas monitoring is required during flowback. At 10% of LEL, work practices change. At 100% of LEL, a single ignition source can ignite the atmosphere."
     },
     {
       text: "Fire and explosion (ignition sources, static electricity)",
-      elaboration: "Static electricity from your boots scuffing the catwalk in dry weather is enough to ignite hydrocarbon vapor. So is a non-rated phone, a worn-out extension cord, hot work without a permit, or the alternator on a truck idling next to a leak. Bonding and grounding aren't decorative."
+      elaboration: "Common ignition sources on flowback locations include static electricity from clothing or footwear, non-rated electronics, hot work without a permit, and running equipment near a leak. Bonding and grounding of tanks, ignition source controls, and hot work permits address this hazard."
     },
     {
       text: "Hot surfaces (separator vessels, flow iron after flow)",
-      elaboration: "Flow iron doesn't visibly glow when it's 200 degrees and ready to put a third-degree burn through your glove. Same with separator vessels after the well's been flowing for hours. Touch with the back of a gloved hand first, or use IR thermometer."
+      elaboration: "Flow iron and separator vessels can remain at temperatures that cause severe burns for 30+ minutes after the well shuts in. Visual inspection alone is not reliable. Use the back of a gloved hand to test, or use an IR thermometer before contact."
     },
     {
       text: "Sand erosion and equipment failure",
-      elaboration: "Sand at flowback velocity erodes tungsten carbide chokes in days, not months. It also erodes the inside of flow iron, valve bodies, and separator dump valves. A sand cut on the inside of a 90-degree bend has zero outward signs until the iron lets go. That's why we monitor sand cutters and inspect."
+      elaboration: "Sand at flowback velocity erodes tungsten carbide chokes within days. The inside of flow iron, valve bodies, and dump valves erode the same way. Erosion at the inside of a 90-degree bend often shows no outward signs until the iron fails. Monitoring sand cutters and inspecting iron are standard practice."
     },
     {
       text: "Pinch points (hammer unions, valves, flow iron)",
-      elaboration: "Hammer unions don't seat smoothly. They jump, snap, and pinch fingers between the lugs and the body. Same with valve handles, choke wrenches, and the underside of separator skids. Hands stay clear, gloves stay on, and we use the right tool every time."
+      elaboration: "Hammer unions, valve handles, choke wrenches, and equipment skids all present pinch hazards during assembly, adjustment, and inspection. Hands stay clear of the line of action, gloves stay on, and the right tool is used for each task."
     },
     {
       text: "Struck-by (dropped equipment, swinging iron, pressure release)",
-      elaboration: "Dropped tools fall straight down. Swinging iron has reach. Pressure release goes wherever the iron points it. The work zone gets cleared for a reason: the people who get hurt are usually the ones who shouldn't have been there in the first place."
+      elaboration: "Dropped tools, equipment under tension, and pressure release events can strike workers in the area. The work zone is cleared during pressure operations specifically to limit who can be exposed. Only essential personnel should be present in active work zones."
     },
     {
       text: "Slips, trips, falls (icy catwalks, slick surfaces, hoses)",
-      elaboration: "More oilfield injuries come from slips and falls than from any pressure incident. Catwalks ice up overnight. Hoses snake across the ground and grab boots. Three points of contact isn't a rule for greenhats, it's the only thing keeping you on the catwalk when the next gust hits."
+      elaboration: "Slip, trip, and fall incidents account for the largest share of oilfield injuries by category. Catwalks ice over in cold weather. Hoses and cables across the ground create trip hazards. Three points of contact on any ladder or elevated surface is required practice."
     },
     {
       text: "Noise exposure (over 85 dB)",
-      elaboration: "OSHA's action level is 85 dB averaged over 8 hours. Flowback equipment routinely runs above 95 dB at the work zone. Hearing loss from long shifts isn't dramatic, you just slowly stop hearing things and don't notice until your kid asks why you keep saying 'what.'"
+      elaboration: "OSHA's action level for noise exposure is 85 dB averaged over 8 hours. Flowback equipment commonly exceeds 95 dB at the work area. Hearing protection is required within 50 feet of flow iron. Long-term hearing damage is cumulative and not reversible."
     },
     {
       text: "Chemical exposure (produced fluids, treatment chemicals)",
-      elaboration: "Produced water can carry NORM (naturally occurring radioactive material), benzene, and concentrated brines. Treatment chemicals like H2S scavengers and corrosion inhibitors are caustic and stain skin permanently. SDS sheets aren't decorative wallpaper, they tell you what's actually in the bucket."
+      elaboration: "Produced water can contain NORM (naturally occurring radioactive material), benzene, and high-concentration brines. Treatment chemicals like H2S scavengers and corrosion inhibitors are typically caustic. SDS sheets for all chemicals on location must be available and reviewed before handling."
     },
     {
       text: "Spill / environmental release",
-      elaboration: "A spill that hits the ground is one problem. A spill that hits a waterway is a different problem entirely, and the operator (and you) get to spend months explaining it. Berms, secondary containment, and spill kits aren't there for the auditor, they're there because cleanup costs orders of magnitude more than prevention."
+      elaboration: "Spills that reach soil require remediation. Spills that reach a waterway trigger regulatory reporting under the Clean Water Act and significant cleanup costs. Berms, secondary containment, spill kits, and contingency plans are the standard controls."
     },
     {
       text: "Heat / cold stress, fatigue (12-hour shifts)",
-      elaboration: "Heat exhaustion sneaks up. By the time you're cramping, you're already dehydrated. Cold doesn't sneak, it just kills you faster. And fatigue at the end of hour 11 of a 12 is when the dumb mistake happens. Hydrate before you're thirsty, eat before you're hungry, and tell someone if you're cooked."
+      elaboration: "Heat exhaustion develops before subjective symptoms are obvious. Cold stress reduces dexterity and judgment. Fatigue at the end of a long shift correlates with the highest rate of preventable incidents. Hydration, rest breaks, and communicating fatigue early are required controls."
     }
   ],
   controls: [
@@ -179,97 +179,95 @@ const FLOWBACK_TEMPLATE = {
 const TEMPLATE_VERSION = "flowback-v0.1.0";
 
 // ============== FACTS LIBRARY ==============
-// Mix of OSHA stats, oilfield history, equipment specs, scale numbers, and
-// dry humor. No "you're walking in their footsteps" romanticizing. Just facts.
-// New facts get added in updates. The picker avoids repeating until the user
-// has seen most of them.
+// Shown in the banner at the top of the JSA form. Roughly even split between
+// trivia ("huh, didn't know that") and technical/process content (educational).
+// Scoped to flowback or broadly upstream. No role commentary, no characterizing
+// of specific job titles, no folklore, no theatrical voice. New facts get added
+// in updates; the picker tracks what each user has seen so repeats are rare.
 const FACTS = [
-  // Sober stats
-  "489 oil and gas extraction workers were killed on the job between 2013 and 2017. Most by hazards on this list.",
-  "Roughly 4 of every 10 oilfield worker fatalities are highway vehicle incidents. The drive home matters more than people think.",
-  "OSHA's noise action level is 85 dB averaged over 8 hours. Most flowback equipment runs above 95 dB at the work zone.",
-  "Slips, trips, and falls cause more oilfield injuries than any other category. Three points of contact wasn't invented for greenhats.",
-  "H2S at 100 ppm causes immediate unconsciousness. At 500 ppm, you have about 3 minutes. The wind decides who lives.",
-  "OSHA fines for serious violations average $14,502 per incident. The hospital bill is bigger.",
-  "Most oilfield fatalities happen to workers with less than 5 years of experience. Pair the new guy with someone who's been there.",
-  "Dehydration is measurable on a chemistry panel hours before you feel thirsty. Drink before the cramps.",
 
-  // Equipment respect
-  "A 2-inch flow line at 5,000 psi has roughly the kinetic energy of a small car at highway speed. That's why we anchor it.",
-  "Tungsten carbide chokes erode visibly in days during sand-heavy flowback. The inside of the iron erodes the same way, just where you can't see it.",
-  "Hammer unions are designed for 15,000 psi. The hammer is rated for 75 lbs of swing force. Your shoulder isn't.",
-  "Flow iron stays hot to the touch for 30+ minutes after a well shuts in. The back of a gloved hand is the test, not the palm.",
-  "A standard separator dump valve cycles 3,000+ times per day during early flowback. Inspection isn't optional.",
-  "BOPs are pressure-tested to 1.5x working pressure. The well doesn't care what they're rated for if the test was skipped.",
-  "Static electricity from boots scuffing a dry catwalk can produce a 25,000-volt spark. That's well above the ignition energy of methane.",
+  // ---- OSHA stats ----
+  "Between 2013 and 2017, 489 U.S. oil and gas extraction workers were killed on the job.",
+  "About 40% of oilfield worker fatalities involve highway vehicle incidents on the drive to or from location.",
+  "OSHA's action level for noise exposure is 85 dB averaged over 8 hours. Most flowback equipment runs above 95 dB at the work area.",
+  "Slips, trips, and falls account for the largest share of oilfield injuries by category.",
+  "Most oilfield worker fatalities involve people with less than 5 years of industry experience.",
+  "OSHA fines for serious violations average around $15,000 per incident.",
+  "The OSHA General Duty Clause is one sentence long. Most enforcement citations cite it.",
+  "OSHA doesn't mandate a specific JSA format. The legal requirement comes from the General Duty Clause.",
 
-  // History
+  // ---- History ----
   "The first commercial U.S. oil well opened in Titusville, Pennsylvania in 1859. Edwin Drake drilled it 69.5 feet deep.",
-  "Spindletop blew in 1901, producing 100,000 barrels per day. It killed three men in the first week. Safety took a while to catch up.",
-  "The Lucas Gusher at Spindletop launched the modern oil industry. It also launched the term 'wildcatter.'",
-  "OSHA was created in 1970 after years of lobbying. Before that, the federal worker fatality count for oil and gas was just an estimate.",
-  "The Macondo blowout in 2010 killed 11 men and changed BOP regulations across the industry. Engineering controls only work if they work.",
-  "Hydraulic fracturing as a stimulation technique was first used in 1947 in Kansas. The horizontal version that changed everything came in the late 1990s.",
-  "The roughneck who never made a mistake never worked a day. The roughneck who never learned from one is the one we worry about.",
+  "A barrel of oil is 42 U.S. gallons. The number comes from old whiskey barrels.",
+  "Spindletop blew in Beaumont, Texas in 1901. It produced 100,000 barrels per day.",
+  "The Lucas Gusher at Spindletop gave the world the term \"wildcatter.\"",
+  "Hydraulic fracturing as a stimulation technique was first used in 1947 in Kansas.",
+  "Horizontal drilling combined with hydraulic fracturing became commercially viable in the late 1990s.",
+  "The deepest well ever drilled reached 40,318 feet. About 7.6 miles down.",
+  "OSHA was created in 1970. Worker fatality records for oil and gas before that year are largely estimates.",
+  "Oklahoma\'s first commercial oil well opened near Bartlesville in 1897.",
+  "Texas overtook Pennsylvania as the top U.S. oil producer in 1928 and has held the title ever since.",
+  "The Macondo blowout in 2010 changed BOP regulations across the industry.",
 
-  // Scale
-  "The Bakken produces enough oil daily to fill roughly 740 Olympic swimming pools.",
-  "The Permian Basin alone produces more oil per day than most OPEC countries.",
-  "A modern horizontal well drains rock that 1980s technology couldn't reach with three vertical wells side by side.",
-  "Frac jobs use enough sand per stage to fill a backyard swimming pool. The well takes 30+ stages.",
-  "A typical pad in the Bakken has 4 to 8 wells. Some have 16. The footprint per barrel produced is a fraction of what it was 30 years ago.",
-  "U.S. oil and gas production today exceeds Saudi Arabia and Russia combined. Most of that came online after 2010.",
-  "The deepest well ever drilled hit 40,318 feet. That's about 7.6 miles down.",
+  // ---- Scale and geography ----
+  "The Permian Basin spans roughly 75,000 square miles across Texas and New Mexico.",
+  "The Permian Basin alone produces more oil per day than most OPEC member countries.",
+  "U.S. oil and gas production today exceeds Saudi Arabia and Russia combined. Most growth came after 2010.",
+  "North Dakota production went from 80,000 barrels per day in 2005 to over 1.4 million by 2014.",
+  "A typical Bakken pad has 4 to 8 wells. Some have 16.",
+  "The Eagle Ford in South Texas was barely producing until 2008.",
+  "A modern horizontal well can drain rock that 1980s vertical wells couldn\'t reach with three boreholes side by side.",
 
-  // Dry humor / culture
-  "Every roughneck has at least one shirt that was new before the welding sparks got it.",
-  "If your truck doesn't have at least one boot footprint on the dashboard, you haven't worked a real job.",
-  "The new guy is always the one who finds the bee's nest. It's tradition.",
-  "There's no such thing as too many fire extinguishers staged. There is such a thing as one not where you needed it.",
-  "The supervisor who shows up clean at end-of-shift either delegated well or didn't do anything.",
-  "Coffee is PPE. Fight me.",
-  "If the tool bag is organized, someone with a clipboard is on location.",
-  "Every wellsite has exactly one porta-john. It is always at the worst possible spot for the wind.",
-  "The shortest distance between two points on a pad is never the path the hose actually takes.",
-  "If the radio works, the gas monitor doesn't. If the gas monitor works, the radio doesn't. This is physics.",
+  // ---- Equipment and physics ----
+  "Flow iron at 5,000 psi carries enough stored energy to whip violently if a connection fails. That\'s why lines are anchored.",
+  "Tungsten carbide chokes can erode visibly within days during sand-heavy flowback.",
+  "Hammer unions are designed to handle up to 15,000 psi when properly seated and pinned.",
+  "Flow iron and separator vessels can remain hot enough to burn for 30+ minutes after shut-in.",
+  "A standard separator dump valve cycles 3,000+ times per day during early flowback.",
+  "BOPs are pressure-tested to 1.5 times their working pressure rating before use.",
+  "Static electricity from boots on a dry catwalk can generate over 20,000 volts. That exceeds the ignition energy of methane.",
+  "The choke manifold on a flowback spread is the most-inspected piece of iron on location.",
+  "Flare stacks are sized for worst-case gas rate, not the daily average.",
 
-  // Hazard-specific reminders
-  "Methane is lighter than air and rises. Hydrogen sulfide is heavier and pools. Wind direction tells you which one you're more worried about today.",
-  "The lower explosive limit for methane in air is 5%. We start sweating at 10% of LEL on the monitor. There's a reason.",
-  "Cold stress kills faster than heat stress. Wet plus wind plus 40 degrees is more dangerous than 95 in the sun, and people underestimate it every year.",
-  "NORM (naturally occurring radioactive material) shows up in produced water and scale. It's not enough to glow but it's enough to flag.",
-  "Benzene exposure has no safe lower limit in OSHA's view. Long careers around produced water mean wearing the right respirator when it counts.",
+  // ---- Process science ----
+  "API gravity above 10 means oil floats on water. Below 10 means it sinks. Most U.S. crude is between 30 and 45.",
+  "Crude oil is a mixture of thousands of distinct hydrocarbons. Refineries separate them by boiling point.",
+  "Mud weight in drilling is measured in pounds per gallon. Heavier mud holds back more formation pressure.",
+  "A \"dog leg\" in directional drilling refers to a sharp angle change in the wellbore.",
+  "Frac sand must have specific grain shape and crush strength to prop fractures effectively.",
+  "A single hydraulic fracture stage can use enough proppant to fill a backyard swimming pool.",
+  "Modern frac jobs typically have 30+ stages along the horizontal section of a single well.",
+  "Modern frac pumps are commonly rated at 2,500 horsepower each. A frac job may use 16 simultaneously.",
+  "Most produced water in U.S. shale plays is reinjected into disposal wells. Disposal is one of the largest cost items on a flowback AFE.",
 
-  // Practical wisdom
-  "If you're tired, say it. The crew won't think less of you. They'll think less of you when you make the mistake.",
-  "The supervisor who stops a job because something feels off is rarely wrong about the feeling.",
-  "Stop Work Authority isn't about stopping the job, it's about not being the person who didn't.",
-  "If the JSA you're filling out is identical to yesterday's, you didn't read it. Read it.",
-  "Wind direction is the cheapest piece of safety equipment on location. Look at the flag.",
-  "The crew that talks to each other on the radio every 30 minutes is the crew that makes it home.",
+  // ---- Hazard physics ----
+  "Hydrogen sulfide is heavier than air and pools in low-lying areas. Methane is lighter than air and rises.",
+  "The lower explosive limit for methane in air is 5%. Standard practice moves to stop-work at 10% of LEL on a monitor.",
+  "Cold stress can be more dangerous than heat stress because symptoms develop more rapidly. Wet, windy, and 40°F is more hazardous than dry and 95°F.",
+  "Produced water in shale plays can contain NORM (naturally occurring radioactive material) and benzene.",
+  "Benzene has no safe lower exposure limit under current OSHA guidance.",
+  "H2S at 100 ppm causes loss of smell. At 500 ppm, exposure of a few minutes can be fatal.",
+  "Continuous gas monitoring is standard practice during flowback because H2S concentrations can change without warning.",
 
-  // Equipment / process trivia
-  "API gravity higher than 10 means oil floats on water. Lower than 10 means it sinks. Most U.S. crude is between 30 and 45.",
-  "A barrel of oil is 42 U.S. gallons. The number comes from old whiskey barrels, since that's what early oilmen had on hand.",
-  "Crude oil contains thousands of distinct hydrocarbons. The refinery's job is sorting them by boiling point.",
-  "A 'dog leg' in directional drilling is when the wellbore changes angle too sharply. They get named for what they look like, not what they cause.",
-  "The kelly bushing on a rig predates rotary drilling itself. It's one of the oldest pieces of equipment still in use.",
-  "Mud weight is measured in pounds per gallon. Heavier mud holds back more pressure. Too heavy fractures the formation.",
+  // ---- Trivia ----
+  "Frac sand mining is itself a multi-billion-dollar industry.",
+  "The kelly bushing predates rotary drilling and is one of the oldest pieces of equipment still in regular use.",
+  "Permitted disposal well injection volumes have been linked to induced seismicity in parts of Oklahoma.",
+  "API standards 54 and 75 (onshore and offshore) reference JHA and JSA processes as part of safety management systems.",
+  "Modern frac trucks can pump at over 100 barrels per minute combined.",
+  "Pre-job safety meetings are required by most U.S. land operators before any flowback or workover operation begins.",
+  "Permit-to-work systems became common on U.S. land operations after several major incidents in the 1990s and 2000s.",
+  "The phrase \"black gold\" was first used to describe coal, not oil.",
 
-  // Regional scale (no romanticizing)
-  "North Dakota went from producing 80,000 barrels per day in 2005 to over 1.4 million by 2014. The infrastructure didn't keep up. People learned a lot.",
-  "The Eagle Ford in South Texas was barely on the map until 2008. Now it's one of the largest producing regions in the country.",
-  "Oklahoma had over 200,000 active wells at one point. The state has more well pluggings on record than most countries have wells.",
-  "The Permian Basin spans 75,000 square miles across Texas and New Mexico. You could fit South Carolina inside it.",
-
-  // Misc
-  "OSHA's General Duty Clause is one sentence long. It says employers must provide a workplace free of recognized hazards. Most citations come from that sentence.",
-  "JSAs aren't required by a specific OSHA standard. They're required by what happens if you don't have one when the inspector asks.",
-  "Permit-to-work systems didn't exist on most U.S. land rigs until major incidents made operators adopt them. They work.",
-  "Most modern hydraulic fracturing pumps are rated for 2,500 horsepower per unit. A typical frac job uses 16 of them.",
-  "Frac sand mining is itself a multi-billion-dollar industry. The sand has to be the right grain shape or it doesn't prop the fracture.",
-  "Most produced water is reinjected into disposal wells. The cost of disposal is one of the biggest line items on a flowback AFE.",
-  "Oilfield slang for a hand who shows up early, works hard, and shuts up: a hand. That's it. There's no higher compliment."
+  // ---- Practical safety reminders ----
+  "Stop Work Authority gives any worker the right to stop a job if they observe an unsafe condition.",
+  "The buddy system isn\'t a beginner\'s rule. It applies to anyone working in a confined space, near pressure, or alone at night.",
+  "Wind direction awareness is one of the cheapest and most effective safety controls on a flowback location.",
+  "Sample collection from upwind position is standard practice when H2S or hydrocarbon vapors are possible.",
+  "Three points of contact is required when climbing any ladder, catwalk, or elevated platform.",
+  "Hydration starts before the shift, not during. Dehydration is detectable in blood chemistry before subjective symptoms appear.",
+  "If you smell hydrocarbons strongly, the LEL is already elevated. The nose detects vapor well below explosive concentrations, but not always reliably.",
+  "If a JSA is identical to yesterday\'s, conditions on location may have changed even if the document didn\'t. Review before signing."
 ];
 
 // Track which facts have been seen (in localStorage so it persists across sessions).
