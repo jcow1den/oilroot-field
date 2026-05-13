@@ -64,7 +64,7 @@ const FLOWBACK_TEMPLATE = {
   hazards: [
     {
       text: "High pressure lines and equipment failure",
-      elaboration: "Flow iron carries fluid at thousands of psi during flowback. When a connection fails, released energy whips the line and ejects components at high velocity. Anchoring lines, pinning hammer unions properly, and keeping the work zone clear before pressure operations are the standard controls."
+      elaboration: "Flow iron carries fluid at thousands of psi during flowback. When a connection fails, released energy whips the line and ejects components at high velocity. Restraints on flow iron, properly pinned hammer unions, and keeping the work zone clear before pressure operations are the standard controls."
     },
     {
       text: "Trapped pressure / unexpected pressure release",
@@ -72,7 +72,7 @@ const FLOWBACK_TEMPLATE = {
     },
     {
       text: "H2S exposure (sour gas)",
-      elaboration: "Hydrogen sulfide at 100 ppm causes loss of smell within minutes. At 500 ppm, short exposure can be fatal. H2S is heavier than air and accumulates in low areas. Required controls include continuous gas monitoring, awareness of wind direction, and a defined upwind muster point."
+      elaboration: "Hydrogen sulfide at 100 ppm causes loss of smell within minutes. At 500 ppm, short exposure can be fatal. H2S is heavier than air and accumulates in low areas. Required controls include continuous gas monitoring (worn within 6 inches of the breathing zone), awareness of wind direction, and a defined upwind muster point."
     },
     {
       text: "Hydrocarbon vapor exposure (LEL / explosive atmosphere)",
@@ -80,7 +80,11 @@ const FLOWBACK_TEMPLATE = {
     },
     {
       text: "Fire and explosion (ignition sources, static electricity)",
-      elaboration: "Common ignition sources on flowback locations include static electricity from clothing or footwear, non-rated electronics, hot work without a permit, and running equipment near a leak. Bonding and grounding of tanks, ignition source controls, and hot work permits address this hazard."
+      elaboration: "Common ignition sources on flowback locations include static electricity from clothing or footwear, non-rated electronics, hot work without permit, and running equipment near a leak. Bonding and grounding of all flowback equipment and vessels, ignition source controls, and hot work permits address this hazard."
+    },
+    {
+      text: "Hot work and ignition sources (heater treaters, welding, cutting, grinding)",
+      elaboration: "Heater treater ignition is part of flowback operations and follows the operator's specific procedure. Other hot work such as welding, cutting, grinding, and any open flame requires a separate hot work permit per OSHA 1910.252 and is not authorized under this JSA. Verify atmosphere is below 10% LEL before any ignition source, including heater treater lighting."
     },
     {
       text: "Hot surfaces (separator vessels, flow iron after flow)",
@@ -99,8 +103,20 @@ const FLOWBACK_TEMPLATE = {
       elaboration: "Dropped tools, equipment under tension, and pressure release events can strike workers in the area. The work zone is cleared during pressure operations specifically to limit who can be exposed. Only essential personnel should be present in active work zones."
     },
     {
-      text: "Slips, trips, falls (icy catwalks, slick surfaces, hoses)",
-      elaboration: "Slip, trip, and fall incidents account for the largest share of oilfield injuries by category. Catwalks ice over in cold weather. Hoses and cables across the ground create trip hazards. Three points of contact on any ladder or elevated surface is required practice."
+      text: "Falls from elevation (tanks, separator tops, elevated equipment)",
+      elaboration: "Climbing on tanks, separator catwalks, and elevated equipment for gauging, sampling, or inspection introduces fall hazards. OSHA 1910.28 requires fall protection at 4 feet for general industry. A harness and lanyard tied off to an anchor point are required for any work above 4 feet. Three points of contact applies to all ladders and elevated surfaces."
+    },
+    {
+      text: "Slips, trips, falls at ground level (icy catwalks, slick surfaces, hoses)",
+      elaboration: "Slip, trip, and fall incidents at ground level account for the largest share of oilfield injuries by category. Catwalks ice over in cold weather. Hoses and cables across the ground create trip hazards. Three points of contact on any ladder or elevated surface is required practice."
+    },
+    {
+      text: "Stored energy release during maintenance (mechanical, electrical, hydraulic, pneumatic)",
+      elaboration: "Iron change-out, valve repair, and equipment maintenance can release stored energy unexpectedly. OSHA 1910.147 requires lockout/tagout (LOTO) of all energy sources before maintenance: depressurization, electrical isolation, pneumatic bleed-off, hydraulic relief. Every energy source must be verified at zero before work begins."
+    },
+    {
+      text: "Confined space hazards (tanks, vessels, enclosed work areas)",
+      elaboration: "Tanks, vessels, and certain enclosed work areas qualify as permit-required confined spaces under OSHA 1910.146. Flowback operations do not include confined space entry. Tank entry, vessel entry, and similar work require a separate permit process with atmospheric testing, ventilation, attendant, and retrieval equipment, and are not authorized under this JSA."
     },
     {
       text: "Noise exposure (over 85 dB)",
@@ -115,6 +131,10 @@ const FLOWBACK_TEMPLATE = {
       elaboration: "Spills that reach soil require remediation. Spills that reach a waterway trigger regulatory reporting under the Clean Water Act and significant cleanup costs. Berms, secondary containment, spill kits, and contingency plans are the standard controls."
     },
     {
+      text: "Vehicle and commute hazards (driving to and from location)",
+      elaboration: "Highway vehicle incidents account for roughly 40% of oilfield worker fatalities. Defensive driving, seatbelt use, no phone while driving, and adequate rest before long drives are the controls. Fatigue management before and after long shifts is critical."
+    },
+    {
       text: "Heat / cold stress, fatigue (12-hour shifts)",
       elaboration: "Heat exhaustion develops before subjective symptoms are obvious. Cold stress reduces dexterity and judgment. Fatigue at the end of a long shift correlates with the highest rate of preventable incidents. Hydration, rest breaks, and communicating fatigue early are required controls."
     }
@@ -125,14 +145,18 @@ const FLOWBACK_TEMPLATE = {
     { text: "All non-essential personnel kept clear of pressure work zones", type: "admin" },
     { text: "Pressure verified at zero before any iron disconnection",    type: "admin" },
     { text: "Hammer unions properly seated and pinned",                   type: "eng"   },
-    { text: "Lines anchored / chained per operator spec",                 type: "eng"   },
-    { text: "Bonding and grounding verified on all tanks",                type: "eng"   },
+    { text: "Lines restrained per operator spec",                       type: "eng"   },
+    { text: "Bonding and grounding verified on all flowback equipment and vessels", type: "eng"   },
     { text: "Continuous gas monitoring (4-gas) at work area",             type: "eng"   },
     { text: "Wind direction noted, briefing oriented to upwind muster",   type: "admin" },
     { text: "Spill kit on site and location communicated",                type: "admin" },
     { text: "Berms / secondary containment verified",                     type: "eng"   },
     { text: "Fire extinguishers staged and inspected",                    type: "eng"   },
-    { text: "Communication plan (radio, hand signals) confirmed",         type: "admin" }
+    { text: "Communication plan (radio, hand signals) confirmed",         type: "admin" },
+    { text: "Lockout/tagout applied to all energy sources before maintenance or iron change-out (mechanical, electrical, hydraulic, pneumatic)", type: "eng"   },
+    { text: "Three points of contact on ladders, catwalks, and elevated surfaces. Fall protection harness in use when working above 4 feet.", type: "admin" },
+    { text: "Heater treater ignition follows operator-specific procedure. Other hot work (welding, cutting, grinding) requires separate hot work permit and is not authorized under this JSA.", type: "admin" },
+    { text: "Defensive driving practices to and from location. Seatbelts in use. No phone while driving. Adequate rest before long drives.", type: "admin" }
   ],
   ppe: [
     { text: "Hard hat", core: true },
@@ -141,8 +165,9 @@ const FLOWBACK_TEMPLATE = {
     { text: "Steel-toe boots (lace-up, ANSI-rated)", core: true },
     { text: "Cut-resistant / impact gloves", core: true },
     { text: "Hearing protection (within 50 ft of flow iron)", core: false },
-    { text: "Personal 4-gas monitor (O2, LEL, H2S, CO)", core: true },
-    { text: "H2S escape pack / SCBA available on site", core: false }
+    { text: "Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)", core: true },
+    { text: "H2S escape pack / SCBA available on site", core: false },
+    { text: "Fall protection harness and lanyard (when working above 4 feet on tanks, separators, or elevated equipment)", core: false }
   ],
   routineSteps: [
     {
@@ -153,7 +178,7 @@ const FLOWBACK_TEMPLATE = {
     {
       title: "Equipment inspection and rig-up verification",
       hazards: ["Pinch points on iron and valves", "Residual pressure in lines", "Dropped equipment during inspection", "Slick surfaces", "Leaks"],
-      controls: ["Visually inspect all flow iron, hammer unions, and connections", "Verify chains/anchoring on flow lines", "Confirm pressure gauges calibrated", "Check choke for wear", "Hands clear of pinch points"]
+      controls: ["Visually inspect all flow iron, hammer unions, and connections", "Verify line restraints in place", "Confirm pressure gauges calibrated", "Check choke for wear", "Hands clear of pinch points"]
     },
     {
       title: "Open well to flow / manage choke and separator",
@@ -176,7 +201,7 @@ const FLOWBACK_TEMPLATE = {
 // ============== TEMPLATE VERSION ==============
 // Bump when the template content changes. Stored on every JSA so we know
 // which version of the template a record was created against.
-const TEMPLATE_VERSION = "flowback-v0.1.0";
+const TEMPLATE_VERSION = "flowback-v0.2.0";
 
 // ============== H2S TIER CONFIG ==============
 // Industry-standard API Condition system. Drives the educational panel and
@@ -206,7 +231,7 @@ const H2S_TIERS = {
     },
     addControls: [],
     // Items here get flagged as required (uncheckable without override reason)
-    requirePpe: ["Personal 4-gas monitor (O2, LEL, H2S, CO)"]
+    requirePpe: ["Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)"]
   },
   cond2: {
     label: "Condition II",
@@ -221,7 +246,7 @@ const H2S_TIERS = {
       "Crew briefed on wind direction and muster point"
     ],
     requirePpe: [
-      "Personal 4-gas monitor (O2, LEL, H2S, CO)",
+      "Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)",
       "H2S escape pack / SCBA available on site"
     ]
   },
@@ -242,7 +267,7 @@ const H2S_TIERS = {
       "Posted warning signage at site entry points"
     ],
     requirePpe: [
-      "Personal 4-gas monitor (O2, LEL, H2S, CO)",
+      "Personal 4-gas monitor worn within 6 inches of breathing zone (O2, LEL, H2S, CO)",
       "H2S escape pack / SCBA available on site"
     ]
   }
@@ -262,7 +287,7 @@ const FACTS = [
   "OSHA's action level for noise exposure is 85 dB averaged over 8 hours. Most flowback equipment runs above 95 dB at the work area.",
   "Slips, trips, and falls account for the largest share of oilfield injuries by category.",
   "Most oilfield worker fatalities involve people with less than 5 years of industry experience.",
-  "OSHA fines for serious violations average around $15,000 per incident.",
+  "OSHA's 2026 maximum penalty for a serious violation is $16,550 per violation. Willful or repeat violations can reach $165,514. Penalties are adjusted annually for inflation.",
   "The OSHA General Duty Clause is one sentence long. Most enforcement citations cite it.",
   "OSHA doesn't mandate a specific JSA format. The legal requirement comes from the General Duty Clause.",
 
@@ -389,6 +414,11 @@ const captureGpsBtn = document.getElementById("capture-gps-btn");
 const jsaGpsEl      = document.getElementById("jsa-gps");
 const jsaHospital   = document.getElementById("jsa-hospital");
 const jsaMuster     = document.getElementById("jsa-muster");
+const jsaEmergencyPhone = document.getElementById("jsa-emergency-phone");
+const jsaFirstAidLoc    = document.getElementById("jsa-first-aid-loc");
+const jsaAedLoc         = document.getElementById("jsa-aed-loc");
+const jsaWindsockLoc    = document.getElementById("jsa-windsock-loc");
+const jsaHeloLz         = document.getElementById("jsa-helo-lz");
 
 const hazardsList   = document.getElementById("hazards-list");
 const controlsList  = document.getElementById("controls-list");
@@ -401,6 +431,9 @@ const confirmStandardBtn = document.getElementById("confirm-standard-btn");
 const exceptionBtn       = document.getElementById("exception-btn");
 const exceptionArea      = document.getElementById("exception-area");
 const exceptionText      = document.getElementById("exception-text");
+const exceptionWorkaround = document.getElementById("exception-workaround");
+const exceptionApprover   = document.getElementById("exception-approver");
+const exceptionStopwork   = document.getElementById("exception-stopwork");
 
 const jsaTodayDifferent = document.getElementById("jsa-today-different");
 const jsaStopWork       = document.getElementById("jsa-stop-work");
@@ -867,7 +900,7 @@ window.addEventListener("resize", () => {
 
 // ============== ADD CREW MEMBER ==============
 if (addCrewBtn) {
-  addCrewBtn.addEventListener("click", () => {
+  addCrewBtn.addEventListener("click", async () => {
     const name = (crewNameInput.value || "").trim();
     if (!name) {
       showToast("Enter the crew member's name", "error");
@@ -887,17 +920,61 @@ if (addCrewBtn) {
     // Capture the signature as a data URL
     const signatureDataUrl = signaturePad.toDataURL("image/png");
 
+    // Compute a SHA-256 hash of the JSA content state at signing time.
+    // This binds the signature to the content as it was when signed. If
+    // the JSA is modified later, the hash no longer matches the content,
+    // providing tamper evidence.
+    const contentHash = await computeJsaContentHash();
+
     signedCrew.push({
       name,
       swaAcknowledged: true,
       signatureDataUrl,
-      signedAt: new Date().toISOString()
+      signedAt: new Date().toISOString(),
+      contentHash: contentHash
     });
 
     renderSignedCrew();
     resetCrewAddForm();
     showToast(`${name} added`, "success");
   });
+}
+
+// Compute SHA-256 hash of the JSA content the user is signing.
+// Uses the Web Crypto API (built into all modern browsers). The hash
+// includes the location, date, conditions, controls/PPE state, hazards,
+// and exception details. Any change to these invalidates the hash.
+async function computeJsaContentHash() {
+  try {
+    const contentToHash = JSON.stringify({
+      location: jsaLocation.value.trim(),
+      date: jsaDateInput.value,
+      shiftStart: jsaTimeInput.value,
+      muster: jsaMuster.value.trim(),
+      hospital: jsaHospital.value.trim(),
+      conditions: interviewAnswers,
+      controlsState: controlsState,
+      ppeState: ppeState,
+      exceptionFlagged: exceptionFlagged,
+      exceptionText: exceptionFlagged ? exceptionText.value.trim() : "",
+      exceptionDetails: exceptionFlagged ? {
+        workaround: exceptionWorkaround?.value.trim() || "",
+        approver: exceptionApprover?.value.trim() || "",
+        stopWork: exceptionStopwork?.value.trim() || ""
+      } : null,
+      todayDifferent: jsaTodayDifferent.value.trim(),
+      stopWork: jsaStopWork.value.trim(),
+      templateVersion: TEMPLATE_VERSION
+    });
+    const encoder = new TextEncoder();
+    const data = encoder.encode(contentToHash);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  } catch (err) {
+    console.warn("Hash computation failed:", err);
+    return null;
+  }
 }
 
 function resetCrewAddForm() {
@@ -1439,14 +1516,31 @@ async function lookupNearestHospital(lat, lng) {
       return;
     }
 
-    jsaHospital.value = result.display;
+    // Only show distance if GPS accuracy is good enough for it to be meaningful
+    // AND the GPS source is a real-time device fix. Cached locations and network
+    // estimates can have tight reported accuracy but be wildly wrong because
+    // they reference a different location than where the user is now.
+    const gpsSource = capturedGps?.source || "browser";
+    const isRealTimeFix = gpsSource === "browser";
+    const showDistance = accuracyMiles <= 0.5 && isRealTimeFix;
+    if (showDistance) {
+      jsaHospital.value = result.display;
+    } else {
+      jsaHospital.value = result.name;
+    }
     hospitalAutoSet = true;  // Mark as auto-set so future location updates can overwrite
 
     // Calibrate the message to GPS confidence
-    if (accuracyMiles <= 0.2) {
+    if (showDistance && accuracyMiles <= 0.2) {
       hospitalStatus.textContent = `Auto-suggested · ${result.distanceMi.toFixed(1)} mi away. Edit if wrong.`;
+    } else if (showDistance) {
+      hospitalStatus.textContent = `Auto-suggested. Verify distance and route.`;
+    } else if (gpsSource === "cached") {
+      hospitalStatus.textContent = `Best guess based on last known location. Verify hospital before relying on it.`;
+    } else if (gpsSource === "iplocate") {
+      hospitalStatus.textContent = `Best guess based on network location. Verify hospital before relying on it.`;
     } else {
-      hospitalStatus.textContent = `Best guess based on imprecise location (±${accuracyMiles.toFixed(1)} mi). Verify.`;
+      hospitalStatus.textContent = `Best guess based on imprecise location. Verify hospital and distance.`;
     }
   } catch (err) {
     console.warn("Hospital lookup failed:", err);
@@ -1531,6 +1625,7 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
 
   return {
     display: `${closest.name} (~${closest.distanceMi.toFixed(1)} mi)${erSuffix}`,
+    name: `${closest.name}${erSuffix}`,
     distanceMi: closest.distanceMi
   };
 }
@@ -1630,10 +1725,27 @@ submitJsaBtn.addEventListener("click", async () => {
     showToast("Confirm standard items, or flag an exception, before submitting", "error");
     return;
   }
-  if (exceptionFlagged && !exceptionText.value.trim()) {
-    showToast("Describe what's different from standard, or untick the exception", "error");
-    exceptionText.focus();
-    return;
+  if (exceptionFlagged) {
+    if (!exceptionText.value.trim()) {
+      showToast("Describe what's different from standard", "error");
+      exceptionText.focus();
+      return;
+    }
+    if (!exceptionWorkaround.value.trim()) {
+      showToast("Describe the workaround in place", "error");
+      exceptionWorkaround.focus();
+      return;
+    }
+    if (!exceptionApprover.value.trim()) {
+      showToast("Who approved the workaround?", "error");
+      exceptionApprover.focus();
+      return;
+    }
+    if (!exceptionStopwork.value.trim()) {
+      showToast("Stop work threshold for this exception is required", "error");
+      exceptionStopwork.focus();
+      return;
+    }
   }
   if (signedCrew.length === 0) {
     showToast("At least one crew member must sign the JSA before submitting", "error");
@@ -1741,6 +1853,8 @@ function snapshotPriorState(data) {
     standardConfirmedAt:  data.standardConfirmedAt,
     exceptionFlagged:     data.exceptionFlagged,
     exceptionText:        data.exceptionText,
+    exceptionDetails:     data.exceptionDetails || null,
+    emergencyInfo:        data.emergencyInfo || null,
     conditions:           data.conditions || null,
     controlsState:        data.controlsState || null,
     ppeState:             data.ppeState || null,
@@ -1794,11 +1908,25 @@ function buildJsaRecord({ location }) {
     nearestHospital: jsaHospital.value.trim(),
     musterPoint:     jsaMuster.value.trim(),
 
+    // Emergency information (optional)
+    emergencyInfo: {
+      contactNumbers: jsaEmergencyPhone ? jsaEmergencyPhone.value.trim() : "",
+      firstAidLocation: jsaFirstAidLoc ? jsaFirstAidLoc.value.trim() : "",
+      aedLocation: jsaAedLoc ? jsaAedLoc.value.trim() : "",
+      windsockLocation: jsaWindsockLoc ? jsaWindsockLoc.value.trim() : "",
+      helicopterLz: jsaHeloLz ? jsaHeloLz.value.trim() : ""
+    },
+
     // Standard items
     standardConfirmed:   isStandardConfirmed,
     standardConfirmedAt: standardConfirmedAt,
     exceptionFlagged:    exceptionFlagged,
     exceptionText:       exceptionFlagged ? exceptionText.value.trim() : "",
+    exceptionDetails:    exceptionFlagged ? {
+      workaround: exceptionWorkaround.value.trim(),
+      approver:   exceptionApprover.value.trim(),
+      stopWork:   exceptionStopwork.value.trim()
+    } : null,
     templateSnapshot:    templateSnapshot,
 
     // Today's conditions (interview answers)
@@ -2035,6 +2163,15 @@ function openJsaForEdit(docId, data) {
   jsaTodayDifferent.value   = data.todayDifferent || "";
   jsaStopWork.value         = data.stopWork || "";
 
+  // Emergency info fields
+  if (data.emergencyInfo) {
+    if (jsaEmergencyPhone) jsaEmergencyPhone.value = data.emergencyInfo.contactNumbers || "";
+    if (jsaFirstAidLoc)    jsaFirstAidLoc.value    = data.emergencyInfo.firstAidLocation || "";
+    if (jsaAedLoc)         jsaAedLoc.value         = data.emergencyInfo.aedLocation || "";
+    if (jsaWindsockLoc)    jsaWindsockLoc.value    = data.emergencyInfo.windsockLocation || "";
+    if (jsaHeloLz)         jsaHeloLz.value         = data.emergencyInfo.helicopterLz || "";
+  }
+
   // GPS preserved from prior state
   if (data.gps) {
     capturedGps = data.gps;
@@ -2055,6 +2192,11 @@ function openJsaForEdit(docId, data) {
     exceptionArea.hidden = false;
     exceptionBtn.textContent = "Cancel exception";
     exceptionText.value = data.exceptionText || "";
+    if (data.exceptionDetails) {
+      if (exceptionWorkaround) exceptionWorkaround.value = data.exceptionDetails.workaround || "";
+      if (exceptionApprover)   exceptionApprover.value   = data.exceptionDetails.approver   || "";
+      if (exceptionStopwork)   exceptionStopwork.value   = data.exceptionDetails.stopWork   || "";
+    }
   }
 
   // Routine task acknowledgment
@@ -2132,6 +2274,13 @@ function renderDetailView(data) {
         <span class="spec-label">Muster point</span>
         <span class="detail-value ${data.musterPoint ? "" : "muted"}">${escapeHtml(data.musterPoint || "Not specified")}</span>
       </div>
+      ${data.emergencyInfo ? `
+        ${data.emergencyInfo.contactNumbers ? `<div class="detail-row"><span class="spec-label">Emergency contact numbers</span><span class="detail-value">${escapeHtml(data.emergencyInfo.contactNumbers)}</span></div>` : ""}
+        ${data.emergencyInfo.firstAidLocation ? `<div class="detail-row"><span class="spec-label">First aid kit location</span><span class="detail-value">${escapeHtml(data.emergencyInfo.firstAidLocation)}</span></div>` : ""}
+        ${data.emergencyInfo.aedLocation ? `<div class="detail-row"><span class="spec-label">AED location</span><span class="detail-value">${escapeHtml(data.emergencyInfo.aedLocation)}</span></div>` : ""}
+        ${data.emergencyInfo.windsockLocation ? `<div class="detail-row"><span class="spec-label">Wind sock location</span><span class="detail-value">${escapeHtml(data.emergencyInfo.windsockLocation)}</span></div>` : ""}
+        ${data.emergencyInfo.helicopterLz ? `<div class="detail-row"><span class="spec-label">Helicopter LZ</span><span class="detail-value">${escapeHtml(data.emergencyInfo.helicopterLz)}</span></div>` : ""}
+      ` : ""}
     </div>
   `);
 
@@ -2209,6 +2358,20 @@ function renderDetailView(data) {
         <span class="spec-label">What's different</span>
         <span class="detail-value">${escapeHtml(data.exceptionText || "—")}</span>
       </div>
+      ${data.exceptionDetails ? `
+        <div class="detail-row">
+          <span class="spec-label">Workaround in place</span>
+          <span class="detail-value">${escapeHtml(data.exceptionDetails.workaround || "—")}</span>
+        </div>
+        <div class="detail-row">
+          <span class="spec-label">Workaround approved by</span>
+          <span class="detail-value">${escapeHtml(data.exceptionDetails.approver || "—")}</span>
+        </div>
+        <div class="detail-row">
+          <span class="spec-label">Stop work threshold for exception</span>
+          <span class="detail-value">${escapeHtml(data.exceptionDetails.stopWork || "—")}</span>
+        </div>
+      ` : ""}
     `;
   }
 
@@ -2345,6 +2508,7 @@ function renderDetailView(data) {
     `;
     data.signedCrew.forEach(c => {
       const timeLabel = c.signedAt ? new Date(c.signedAt).toLocaleString() : "—";
+      const hashShort = c.contentHash ? c.contentHash.substring(0, 12) + "..." : "";
       crewSection += `
         <div class="detail-signature-item">
           <div class="crew-signed-head">
@@ -2357,6 +2521,7 @@ function renderDetailView(data) {
             </div>
           ` : ""}
           ${c.swaAcknowledged ? `<span class="crew-signed-swa">✓ STOP WORK AUTHORITY ACKNOWLEDGED</span>` : ""}
+          ${hashShort ? `<span class="crew-signed-time" title="${escapeHtml(c.contentHash)}">Content hash: ${escapeHtml(hashShort)}</span>` : ""}
         </div>
       `;
     });
