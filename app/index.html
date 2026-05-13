@@ -325,23 +325,41 @@
         </div>
 
         <p class="section-blurb">
-          Tap any hazard to see what can actually happen. The point isn't to scare anyone, it's to remember why we do this.
+          Tap to review. Tap any hazard to see what can actually happen.
         </p>
 
-        <ul id="hazards-list" class="hazard-list-expanded"></ul>
+        <button type="button" class="collapse-header" id="hazards-collapse-header" aria-expanded="false">
+          <span class="collapse-title">
+            <span id="hazards-collapse-count" class="collapse-count">0 hazards</span>
+            <span class="collapse-hint">Tap to review</span>
+          </span>
+          <svg class="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <ul id="hazards-list" class="hazard-list-expanded collapsible-content" hidden></ul>
       </div>
 
       <div class="form-section">
         <div class="section-head">
           <span class="section-num font-mono">§ 03</span>
-          <h2 class="section-title">Standard controls in place</h2>
+          <h2 class="section-title">Standard controls</h2>
         </div>
 
         <p class="section-blurb">
-          The control measures expected on every flowback job. Tagged by hierarchy of controls.
+          Check the controls that apply to today's job. Tap any item to see why it matters.
         </p>
 
-        <ul id="controls-list" class="standard-list"></ul>
+        <button type="button" class="collapse-header" id="controls-collapse-header" aria-expanded="false">
+          <span class="collapse-title">
+            <span id="controls-collapse-count" class="collapse-count">0 of 0 checked</span>
+            <span class="collapse-hint">Tap to review and check</span>
+          </span>
+          <svg class="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <ul id="controls-list" class="standard-list collapsible-content" hidden></ul>
       </div>
 
       <div class="form-section">
@@ -350,7 +368,20 @@
           <h2 class="section-title">Required PPE</h2>
         </div>
 
-        <ul id="ppe-list" class="standard-list"></ul>
+        <p class="section-blurb">
+          Check the PPE that applies. Core items are required to submit. Tap any item to see why it matters.
+        </p>
+
+        <button type="button" class="collapse-header" id="ppe-collapse-header" aria-expanded="false">
+          <span class="collapse-title">
+            <span id="ppe-collapse-count" class="collapse-count">0 of 0 checked</span>
+            <span class="collapse-hint">Tap to review and check</span>
+          </span>
+          <svg class="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <ul id="ppe-list" class="standard-list collapsible-content" hidden></ul>
       </div>
 
       <div class="form-section">
