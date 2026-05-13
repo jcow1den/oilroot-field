@@ -207,6 +207,18 @@
         </div>
 
         <div class="interview-question">
+          <p class="interview-q-label">What work today besides routine monitoring?</p>
+          <p class="interview-q-hint">Multi-select. Tap any that apply.</p>
+          <div class="interview-options interview-multi" data-question="work">
+            <button type="button" class="interview-chip" data-value="routine">Routine monitoring only</button>
+            <button type="button" class="interview-chip" data-value="maintenance">Equipment maintenance / iron change-out</button>
+            <button type="button" class="interview-chip" data-value="heater_treater">Heater treater lighting</button>
+            <button type="button" class="interview-chip" data-value="elevation_sample">Sample collection at elevation</button>
+            <button type="button" class="interview-chip" data-value="other">Other</button>
+          </div>
+        </div>
+
+        <div class="interview-question">
           <p class="interview-q-label">New crew member on location today?</p>
           <div class="interview-options" data-question="newcrew">
             <button type="button" class="interview-chip" data-value="yes">Yes</button>
@@ -222,6 +234,7 @@
             <button type="button" class="interview-chip" data-value="heat">Heat</button>
             <button type="button" class="interview-chip" data-value="wind">Wind</button>
             <button type="button" class="interview-chip" data-value="lightning">Lightning</button>
+            <button type="button" class="interview-chip" data-value="visibility">Reduced visibility</button>
             <button type="button" class="interview-chip" data-value="none">None</button>
           </div>
         </div>
@@ -232,6 +245,12 @@
             <span class="interview-q-hint">Optional. Free text.</span>
             <textarea id="interview-different" class="field textarea" rows="2" placeholder="e.g., Sand cutter wear monitoring, new pad operator, generator swapped out."></textarea>
           </label>
+        </div>
+
+        <!-- Pre-fill indicator (shown when fast-path is active) -->
+        <div id="prefill-indicator" class="prefill-indicator" hidden>
+          <span class="prefill-label">PRE-FILLED FROM LAST SHIFT</span>
+          <span id="prefill-detail" class="prefill-detail"></span>
         </div>
       </div>
 
@@ -325,19 +344,10 @@
         </div>
 
         <p class="section-blurb">
-          Tap to review. Tap any hazard to see what can actually happen.
+          Tap any hazard to see what can actually happen.
         </p>
 
-        <button type="button" class="collapse-header" id="hazards-collapse-header" aria-expanded="false">
-          <span class="collapse-title">
-            <span id="hazards-collapse-count" class="collapse-count">0 hazards</span>
-            <span class="collapse-hint">Tap to review</span>
-          </span>
-          <svg class="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <ul id="hazards-list" class="hazard-list-expanded collapsible-content" hidden></ul>
+        <ul id="hazards-list" class="hazard-list-expanded"></ul>
       </div>
 
       <div class="form-section">
@@ -350,16 +360,7 @@
           Check the controls that apply to today's job. Tap any item to see why it matters.
         </p>
 
-        <button type="button" class="collapse-header" id="controls-collapse-header" aria-expanded="false">
-          <span class="collapse-title">
-            <span id="controls-collapse-count" class="collapse-count">0 of 0 checked</span>
-            <span class="collapse-hint">Tap to review and check</span>
-          </span>
-          <svg class="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <ul id="controls-list" class="standard-list collapsible-content" hidden></ul>
+        <ul id="controls-list" class="standard-list"></ul>
       </div>
 
       <div class="form-section">
@@ -372,16 +373,7 @@
           Check the PPE that applies. Core items are required to submit. Tap any item to see why it matters.
         </p>
 
-        <button type="button" class="collapse-header" id="ppe-collapse-header" aria-expanded="false">
-          <span class="collapse-title">
-            <span id="ppe-collapse-count" class="collapse-count">0 of 0 checked</span>
-            <span class="collapse-hint">Tap to review and check</span>
-          </span>
-          <svg class="collapse-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <ul id="ppe-list" class="standard-list collapsible-content" hidden></ul>
+        <ul id="ppe-list" class="standard-list"></ul>
       </div>
 
       <div class="form-section">
