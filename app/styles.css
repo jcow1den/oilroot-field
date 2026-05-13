@@ -2019,6 +2019,161 @@ html, body {
   color: var(--amber);
 }
 
+/* ============== COLLAPSIBLE SECTIONS ============== */
+.collapse-header {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: 4px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  color: var(--ink);
+  transition: all 0.15s ease;
+}
+
+.collapse-header:hover {
+  border-color: var(--ink-2);
+}
+
+.collapse-header.expanded {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.collapse-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.collapse-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+}
+
+.collapse-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+}
+
+.collapse-arrow {
+  transition: transform 0.2s ease;
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+
+.collapse-header.expanded .collapse-arrow {
+  transform: rotate(90deg);
+}
+
+.collapsible-content {
+  margin-top: 0;
+  border: 1px solid var(--line-2);
+  border-top: 0;
+  border-radius: 0 0 4px 4px;
+  padding: 8px;
+  background: var(--bg-2);
+}
+
+/* ============== EXPANDABLE CHECKBOX ITEMS ============== */
+.checkbox-list.with-elaborations .checkbox-item.expandable {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  gap: 0;
+  cursor: default;
+}
+
+.checkbox-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.checkbox-item-text-btn {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.checkbox-item-text-btn .checkbox-item-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.checkbox-item.checked .checkbox-item-text-btn .checkbox-item-text {
+  color: var(--ink);
+}
+
+.elab-arrow {
+  flex-shrink: 0;
+  margin-top: 4px;
+  color: var(--ink-3);
+  transition: transform 0.2s ease;
+}
+
+.checkbox-item.expandable.expanded .elab-arrow {
+  transform: rotate(90deg);
+}
+
+.item-elaboration {
+  padding: 10px 12px 12px 12px;
+  margin: 0 10px 8px 10px;
+  background: rgba(234, 88, 12, 0.05);
+  border-left: 2px solid var(--rust-bright);
+  border-radius: 0 4px 4px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.elaboration-label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--rust-bright);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* Hazard reminder tag (anti-complacency rotating reminder) */
+.hazard-reminder-tag {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: rgba(217, 119, 6, 0.12);
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
 /* ============== TOAST ============== */
 .toast {
   position: fixed;
