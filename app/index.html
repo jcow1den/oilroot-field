@@ -345,29 +345,52 @@
         </div>
 
         <p class="section-blurb">
-          Check each item that applies to today's work. Tap any item to read what it means.
+          Three acknowledgments. Tap any to read what it covers before you check it.
         </p>
 
-        <!-- Combined controls + PPE list (filtered by intake answers) -->
-        <ul id="combined-list" class="standard-list"></ul>
+        <!-- Acknowledgment 1: Hazards -->
+        <div class="ack-card">
+          <div class="ack-card-head">
+            <input type="checkbox" id="ack-hazards" class="ack-check" />
+            <label for="ack-hazards" class="ack-label">
+              <span class="ack-title">Hazards reviewed</span>
+              <span id="ack-hazards-sub" class="ack-sub">— items</span>
+            </label>
+          </div>
+          <button type="button" id="ack-hazards-toggle" class="inline-collapse-btn-sm" aria-expanded="false">
+            <svg class="collapse-arrow-icon" width="11" height="11" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Read what this covers</span>
+          </button>
+          <ul id="hazards-list" class="hazard-list-expanded ack-detail" hidden></ul>
+        </div>
 
-        <!-- Hazards: collapsed by default; tap to expand and review -->
-        <button type="button" id="hazards-toggle" class="inline-collapse-btn" aria-expanded="false">
-          <svg class="collapse-arrow-icon" width="12" height="12" viewBox="0 0 24 24" fill="none">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span>Review today's hazards</span>
-          <span id="hazards-count-tag" class="inline-collapse-count"></span>
-        </button>
-        <ul id="hazards-list" class="hazard-list-expanded" hidden></ul>
+        <!-- Acknowledgment 2: Controls and PPE -->
+        <div class="ack-card">
+          <div class="ack-card-head">
+            <input type="checkbox" id="ack-controls-ppe" class="ack-check" />
+            <label for="ack-controls-ppe" class="ack-label">
+              <span class="ack-title">Controls and PPE in place for today's work</span>
+              <span id="ack-controls-ppe-sub" class="ack-sub">— items</span>
+            </label>
+          </div>
+          <button type="button" id="ack-controls-ppe-toggle" class="inline-collapse-btn-sm" aria-expanded="false">
+            <svg class="collapse-arrow-icon" width="11" height="11" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Read what this covers</span>
+          </button>
+          <ul id="combined-list" class="standard-list ack-detail readonly-list" hidden></ul>
+        </div>
 
-        <!-- Routine task acknowledgment with expandable step breakdown -->
-        <div class="task-card-inline">
-          <div class="task-card-head">
-            <input type="checkbox" id="task-routine" class="task-check" />
-            <label for="task-routine" class="task-label">
-              <span class="task-title">Acknowledge standard task breakdown</span>
-              <span class="task-sub">Routine 5-step flowback operations</span>
+        <!-- Acknowledgment 3: Standard task breakdown -->
+        <div class="ack-card">
+          <div class="ack-card-head">
+            <input type="checkbox" id="task-routine" class="ack-check" />
+            <label for="task-routine" class="ack-label">
+              <span class="ack-title">Standard task breakdown acknowledged</span>
+              <span class="ack-sub">Routine 5-step flowback operations</span>
             </label>
           </div>
           <button type="button" id="routine-steps-toggle" class="inline-collapse-btn-sm" aria-expanded="false">
@@ -376,7 +399,7 @@
             </svg>
             <span>Read the 5 steps</span>
           </button>
-          <div id="routine-steps-list" class="routine-steps-list" hidden></div>
+          <div id="routine-steps-list" class="routine-steps-list ack-detail" hidden></div>
         </div>
 
         <!-- Non-routine task button (only the button until clicked) -->
