@@ -2312,6 +2312,8 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
       way["amenity"="hospital"]["emergency"="yes"](around:${radiusMeters},${lat},${lng});
       node["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
+      node["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
+      way["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
     );
     out center 50;
   `;
@@ -2407,21 +2409,23 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
     const hasEmergency = c.tags?.emergency === "yes";
     const isHealthcareHospital = c.tags?.healthcare === "hospital";
     if (hasEmergency && isHealthcareHospital) {
-      score = 0;  // Best match: explicit ER + hospital classification
+      score = 0;   // Best: explicit ER + hospital classification
     } else if (hasEmergency) {
-      score = 10; // Has ER tag but classification unclear
+      score = 10;  // Has ER tag, classification unclear
     } else if (isHealthcareHospital) {
-      score = 20; // Hospital classification but ER not explicitly tagged
+      score = 20;  // Hospital classification, ER not explicitly tagged
+    } else {
+      score = 30;  // Plain amenity=hospital, no qualifiers (rural OSM)
     }
     // Boost (lower) score if name contains strong positive indicators
     const lower = (c.name || "").toLowerCase();
-    if (lower.includes("regional medical") || lower.includes("medical center")) score -= 2;
     if (lower.includes("trauma center")) score -= 5;
     if (lower.includes("level i") || lower.includes("level 1")) score -= 3;
-    // Penalize names that suggest single-specialty or non-trauma even if tags passed
+    if (lower.includes("regional medical")) score -= 3;
+    if (lower.includes("medical center") || lower.includes("regional health")) score -= 2;
+    if (lower.includes("health center") && !lower.includes("mental")) score -= 1;
+    // Penalize names that suggest single-specialty or non-trauma
     if (lower.includes("children's") || lower.includes("childrens") || lower.includes("pediatric")) {
-      // Children's hospitals can handle some trauma but may not be the first choice
-      // for an adult oilfield worker; mark as lower priority
       score += 5;
     }
     c.score = score;
