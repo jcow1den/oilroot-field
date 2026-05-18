@@ -3827,12 +3827,12 @@ function drawSectionTitle(ctx, title) {
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(10);
   pdf.setTextColor(20);
-  // Slight uppercase styling
   pdf.text(title.toUpperCase(), PDF_MARGIN_X, ctx.y);
+  // Underline below text descenders (was +3, hitting descenders; +5 is clear)
   pdf.setDrawColor(20);
-  pdf.setLineWidth(1);
-  pdf.line(PDF_MARGIN_X, ctx.y + 3, PDF_PAGE_W - PDF_MARGIN_X, ctx.y + 3);
-  advanceY(ctx, 14);
+  pdf.setLineWidth(0.8);
+  pdf.line(PDF_MARGIN_X, ctx.y + 5, PDF_PAGE_W - PDF_MARGIN_X, ctx.y + 5);
+  advanceY(ctx, 16);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
 }
@@ -3953,34 +3953,38 @@ function drawChecklistItem(ctx, opts) {
 // Boxed routine task step
 function drawTaskStep(ctx, num, step) {
   const pdf = ctx.pdf;
-  const startY = ctx.y;
 
-  // Estimate height needed
+  // Estimate height needed for page break decision
   const titleHeight = PDF_LINE_HEIGHT + 4;
-  let estimateH = titleHeight;
+  let estimateH = titleHeight + 6;  // include top padding
   if (step.description) estimateH += 20;
   if (step.hazards?.length) estimateH += 16;
   if (step.controls?.length) estimateH += 16;
 
   if (ctx.y + estimateH > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
 
-  const boxStartY = ctx.y - 4;
+  // Box starts 8pt above the title baseline (above the caps of the title text)
+  // This prevents the box border from cutting through the title.
+  const boxStartY = ctx.y - 8;
 
-  // Step number circle and title
+  // Move title down so it sits within the box with top padding
+  ctx.y += 4;
+
+  // Step number and title
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(9);
   pdf.setTextColor(20);
-  pdf.text(`STEP ${num}: ${(step.title || "").toUpperCase()}`, PDF_MARGIN_X + 8, ctx.y);
+  pdf.text(`STEP ${num}: ${(step.title || "").toUpperCase()}`, PDF_MARGIN_X + 10, ctx.y);
   ctx.y += PDF_LINE_HEIGHT;
 
   // Description
   if (step.description) {
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8);
-    const lines = pdf.splitTextToSize(step.description, PDF_CONTENT_W - 16);
+    const lines = pdf.splitTextToSize(step.description, PDF_CONTENT_W - 20);
     lines.forEach(l => {
       if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
-      pdf.text(l, PDF_MARGIN_X + 8, ctx.y);
+      pdf.text(l, PDF_MARGIN_X + 10, ctx.y);
       ctx.y += PDF_LINE_HEIGHT - 1;
     });
     ctx.y += 2;
@@ -3990,14 +3994,14 @@ function drawTaskStep(ctx, num, step) {
   if (step.hazards?.length) {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);
-    pdf.text("Hazards:", PDF_MARGIN_X + 8, ctx.y);
+    pdf.text("Hazards:", PDF_MARGIN_X + 10, ctx.y);
     const hazW = pdf.getTextWidth("Hazards: ");
     pdf.setFont("helvetica", "normal");
     const hazText = step.hazards.join("; ");
-    const hazLines = pdf.splitTextToSize(hazText, PDF_CONTENT_W - 16 - hazW);
+    const hazLines = pdf.splitTextToSize(hazText, PDF_CONTENT_W - 20 - hazW);
     hazLines.forEach((l, i) => {
       if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
-      pdf.text(l, PDF_MARGIN_X + 8 + (i === 0 ? hazW : 0), ctx.y);
+      pdf.text(l, PDF_MARGIN_X + 10 + (i === 0 ? hazW : 0), ctx.y);
       ctx.y += PDF_LINE_HEIGHT - 1;
     });
     ctx.y += 2;
@@ -4007,20 +4011,20 @@ function drawTaskStep(ctx, num, step) {
   if (step.controls?.length) {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);
-    pdf.text("Controls:", PDF_MARGIN_X + 8, ctx.y);
+    pdf.text("Controls:", PDF_MARGIN_X + 10, ctx.y);
     const ctlW = pdf.getTextWidth("Controls: ");
     pdf.setFont("helvetica", "normal");
     const ctlText = step.controls.join("; ");
-    const ctlLines = pdf.splitTextToSize(ctlText, PDF_CONTENT_W - 16 - ctlW);
+    const ctlLines = pdf.splitTextToSize(ctlText, PDF_CONTENT_W - 20 - ctlW);
     ctlLines.forEach((l, i) => {
       if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
-      pdf.text(l, PDF_MARGIN_X + 8 + (i === 0 ? ctlW : 0), ctx.y);
+      pdf.text(l, PDF_MARGIN_X + 10 + (i === 0 ? ctlW : 0), ctx.y);
       ctx.y += PDF_LINE_HEIGHT - 1;
     });
     ctx.y += 2;
   }
 
-  // Draw the box around the step
+  // Box ends with bottom padding past the last text
   const boxEndY = ctx.y + 2;
   pdf.setDrawColor(180);
   pdf.setLineWidth(0.5);
@@ -4028,29 +4032,33 @@ function drawTaskStep(ctx, num, step) {
   // Left accent bar
   pdf.setFillColor(70, 70, 70);
   pdf.rect(PDF_MARGIN_X, boxStartY, 2.5, boxEndY - boxStartY, "F");
-  ctx.y = boxEndY + 6;
+  ctx.y = boxEndY + 8;
 }
 
 // Draw signature block
 function drawSignature(ctx, sig) {
   const pdf = ctx.pdf;
 
-  // Need at least 70pt for signature
-  if (ctx.y + 70 > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+  // Need at least 80pt for signature block
+  if (ctx.y + 80 > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
 
-  const blockStartY = ctx.y - 2;
+  // Box starts 9pt above the name text baseline (above the caps of the title)
+  const blockStartY = ctx.y - 9;
+
+  // Push name down so it sits inside the box with top padding
+  ctx.y += 4;
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(10);
   pdf.setTextColor(20);
-  pdf.text(sig.name || "—", PDF_MARGIN_X + 8, ctx.y + 4);
-  ctx.y += 14;
+  pdf.text(sig.name || "—", PDF_MARGIN_X + 10, ctx.y);
+  ctx.y += 12;
 
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8);
   pdf.setTextColor(80);
   const swaLabel = sig.swaAcknowledged ? "Yes" : "No";
   const signedAt = sig.signedAt ? new Date(sig.signedAt).toLocaleString() : "—";
-  pdf.text(`SWA acknowledged: ${swaLabel}   ·   Signed: ${signedAt}`, PDF_MARGIN_X + 8, ctx.y);
+  pdf.text(`SWA acknowledged: ${swaLabel}   ·   Signed: ${signedAt}`, PDF_MARGIN_X + 10, ctx.y);
   ctx.y += 10;
 
   // Signature image
@@ -4059,17 +4067,17 @@ function drawSignature(ctx, sig) {
       const imgW = 180;
       const imgH = 50;
       if (ctx.y + imgH > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
-      pdf.addImage(sig.signatureData, "PNG", PDF_MARGIN_X + 8, ctx.y, imgW, imgH);
+      pdf.addImage(sig.signatureData, "PNG", PDF_MARGIN_X + 10, ctx.y, imgW, imgH);
       // Light frame around the signature
       pdf.setDrawColor(220);
       pdf.setLineWidth(0.3);
-      pdf.rect(PDF_MARGIN_X + 8, ctx.y, imgW, imgH);
-      ctx.y += imgH + 4;
+      pdf.rect(PDF_MARGIN_X + 10, ctx.y, imgW, imgH);
+      ctx.y += imgH + 6;
     } catch (err) {
       console.warn("Signature image render failed:", err);
       pdf.setFont("helvetica", "italic");
       pdf.setFontSize(8);
-      pdf.text("[Signature image could not be rendered]", PDF_MARGIN_X + 8, ctx.y);
+      pdf.text("[Signature image could not be rendered]", PDF_MARGIN_X + 10, ctx.y);
       ctx.y += 10;
     }
   }
@@ -4079,18 +4087,19 @@ function drawSignature(ctx, sig) {
     pdf.setFont("courier", "normal");
     pdf.setFontSize(7);
     pdf.setTextColor(120);
-    pdf.text(`Content hash: ${sig.contentHash}`, PDF_MARGIN_X + 8, ctx.y);
+    pdf.text(`Content hash: ${sig.contentHash}`, PDF_MARGIN_X + 10, ctx.y);
     ctx.y += 9;
   }
 
-  // Box the whole signature
+  // Box ends with bottom padding past the last text
+  const blockEndY = ctx.y + 2;
   pdf.setDrawColor(200);
   pdf.setLineWidth(0.5);
-  pdf.rect(PDF_MARGIN_X, blockStartY, PDF_CONTENT_W, ctx.y - blockStartY);
+  pdf.rect(PDF_MARGIN_X, blockStartY, PDF_CONTENT_W, blockEndY - blockStartY);
   pdf.setFillColor(70, 70, 70);
-  pdf.rect(PDF_MARGIN_X, blockStartY, 2.5, ctx.y - blockStartY, "F");
+  pdf.rect(PDF_MARGIN_X, blockStartY, 2.5, blockEndY - blockStartY, "F");
   pdf.setTextColor(20);
-  ctx.y += 6;
+  ctx.y = blockEndY + 8;
 }
 
 // Generate filename: JSA_[location-slug]_[YYYY-MM-DD].pdf
