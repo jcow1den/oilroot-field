@@ -2308,12 +2308,16 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
     (
       node["amenity"="hospital"]["emergency"="yes"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"]["emergency"="yes"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
+      relation["amenity"="hospital"]["emergency"="yes"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       node["amenity"="hospital"]["emergency"="yes"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"]["emergency"="yes"](around:${radiusMeters},${lat},${lng});
+      relation["amenity"="hospital"]["emergency"="yes"](around:${radiusMeters},${lat},${lng});
       node["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
+      relation["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       node["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
+      relation["amenity"="hospital"](around:${radiusMeters},${lat},${lng});
     );
     out center 50;
   `;
