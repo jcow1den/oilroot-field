@@ -2279,7 +2279,31 @@ async function lookupNearestHospital(lat, lng) {
     }
   } catch (err) {
     console.warn("Hospital lookup failed:", err);
-    hospitalStatus.textContent = "Hospital lookup unavailable. Type one in.";
+    // Try one retry after a short delay — the Overpass API often recovers
+    // from transient overload within a few seconds
+    try {
+      await new Promise(r => setTimeout(r, 2000));
+      let result = await queryOverpassForHospital(lat, lng, searchRadiusMeters);
+      if (!result && searchRadiusMeters < 80000) {
+        result = await queryOverpassForHospital(lat, lng, 80000);
+      }
+      if (result) {
+        const gpsSource = capturedGps?.source || "browser";
+        const isRealTimeFix = gpsSource === "browser";
+        const showDistance = accuracyMiles <= 0.5 && isRealTimeFix;
+        if (showDistance) {
+          jsaHospital.value = result.display;
+        } else {
+          jsaHospital.value = result.name;
+        }
+        hospitalAutoSet = true;
+        hospitalStatus.textContent = "Auto-suggested after retry. Verify.";
+        return;
+      }
+    } catch (retryErr) {
+      console.warn("Hospital lookup retry also failed:", retryErr);
+    }
+    hospitalStatus.textContent = "Hospital lookup unavailable right now. Type one in.";
   }
 }
 
@@ -2304,7 +2328,7 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
   // facilities by both tag and name filter.
 
   const overpassQuery = `
-    [out:json][timeout:10];
+    [out:json][timeout:25];
     (
       node["amenity"="hospital"]["emergency"="yes"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"]["emergency"="yes"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
@@ -3697,13 +3721,16 @@ function resetJsaForm() {
   resetCrewAddForm();
 }
 
-// ============== PDF EXPORT ==============
-// Lazy-load jsPDF + html2canvas from CDN on first export. They're ~250KB
-// combined so we only load when the user actually wants a PDF.
+// ============== PDF EXPORT (native jsPDF text rendering) ==============
+// We use jsPDF's text rendering directly instead of html2canvas. This produces
+// native PDFs that are: (1) much smaller (~50-150 KB vs 60+ MB), (2) fully
+// text-searchable and copy-pasteable, (3) accessible to screen readers,
+// (4) faster to generate. The visual style is industrial/operational, not
+// academic — sans-serif, dense, tabular.
+
 let pdfLibsLoaded = false;
 async function ensurePdfLibsLoaded() {
   if (pdfLibsLoaded) return;
-
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -3713,309 +3740,357 @@ async function ensurePdfLibsLoaded() {
       document.head.appendChild(s);
     });
   }
-
-  // Load html2canvas first, then jsPDF
-  await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js");
+  // Only jsPDF needed now — html2canvas is gone
   await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-
   pdfLibsLoaded = true;
 }
 
-// Build the print-friendly HTML for the JSA. This is rendered into a hidden
-// off-screen container, then rasterized by html2canvas, then packaged into PDF.
-function buildPdfHtml(data) {
-  const dateLabel = data.date
-    ? new Date(data.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
-    : "—";
-  const gpsLabel = data.gps
-    ? `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° (accuracy: ~${Math.round(data.gps.accuracy || 0)}m, source: ${data.gps.source || "unknown"})`
-    : "Not captured";
-  const submittedAt = data.submittedAt && data.submittedAt.toDate
-    ? data.submittedAt.toDate().toLocaleString()
-    : "—";
+// ===== Layout constants =====
+const PDF_MARGIN_X = 36;       // 0.5 inch
+const PDF_MARGIN_Y = 36;
+const PDF_PAGE_W   = 612;      // letter
+const PDF_PAGE_H   = 792;
+const PDF_CONTENT_W = PDF_PAGE_W - (PDF_MARGIN_X * 2);
+const PDF_LINE_HEIGHT = 11;
+const PDF_FOOTER_RESERVE = 28; // reserve space at bottom of every page for footer
 
-  // H2S tier label
-  const h2sLabels = {
-    "none":      "Not present",
-    "trace":     "Trace, monitor only (below 10 ppm)",
-    "caution":   "Caution, alarm range (10 to 50 ppm)",
-    "danger":    "Danger, physical effects (50 to 100 ppm)",
-    "severe":    "Severe, evacuate (above 100 ppm)",
-    "cond1":     "Condition I (below 10 ppm) — legacy",
-    "cond2":     "Condition II (10 to 30 ppm) — legacy",
-    "cond3":     "Condition III (above 30 ppm) — legacy"
+// PDF rendering context. Tracks current cursor position. Manages page breaks
+// automatically through writeText() / nextRowSpace() helpers.
+function createPdfCtx(pdf, data) {
+  return {
+    pdf,
+    data,
+    y: PDF_MARGIN_Y,
+    pageNum: 1,
+    locationLabel: data.location || "Untitled",
+    dateLabel: data.date || "",
+    docId: detailDocId || "—"
   };
-  const h2sLabel = h2sLabels[data.conditions?.h2s] || "—";
-
-  // Work types
-  const workLabels = {
-    "routine":           "Routine monitoring only",
-    "maintenance":       "Equipment maintenance / iron change-out",
-    "heater_treater":    "Heater treater lighting",
-    "elevation_sample":  "Sample collection at elevation",
-    "other":             "Other"
-  };
-  const workSelected = (data.conditions?.work || []).map(w => workLabels[w] || w).join(", ") || "—";
-  const weatherSelected = (data.conditions?.weather || []).join(", ") || "—";
-
-  // Reconstruct active content from snapshot
-  const activeContent = data.activeContent || { hazardIdxs: [], controlIdxs: [], ppeIdxs: [] };
-  const template = data.templateSnapshot || FLOWBACK_TEMPLATE;
-
-  // Build hazards section
-  const hazardsHtml = activeContent.hazardIdxs.map(idx => {
-    const h = template.hazards[idx];
-    if (!h) return "";
-    return `
-      <div class="pdf-item">
-        <p class="pdf-item-text">${escapeHtml(h.text)}</p>
-        <p class="pdf-item-elab">${escapeHtml(h.elaboration || "")}</p>
-      </div>
-    `;
-  }).join("");
-
-  // Build controls section
-  const controlsHtml = activeContent.controlIdxs.map(idx => {
-    const c = template.controls[idx];
-    if (!c) return "";
-    const state = data.controlsState?.[idx] || { checked: false };
-    const checkbox = state.checked ? "☒" : "☐";
-    const expandedTag = state.expanded ? '<span class="pdf-eng-tag">Reviewed elaboration</span>' : "";
-    const typeTag = c.type === "eng" ? "ENGINEERING" : c.type === "admin" ? "ADMIN" : "PPE";
-    return `
-      <div class="pdf-item">
-        <p class="pdf-item-text">${checkbox} ${escapeHtml(c.text)} <span class="pdf-tag">${typeTag}</span>${expandedTag}</p>
-        <p class="pdf-item-elab">${escapeHtml(c.elaboration || "")}</p>
-      </div>
-    `;
-  }).join("");
-
-  // Build PPE section
-  const ppeHtml = activeContent.ppeIdxs.map(idx => {
-    const p = template.ppe[idx];
-    if (!p) return "";
-    const state = data.ppeState?.[idx] || { checked: false };
-    const checkbox = state.checked ? "☒" : "☐";
-    const coreTag = p.core ? '<span class="pdf-tag">CORE</span>' : "";
-    const expandedTag = state.expanded ? '<span class="pdf-eng-tag">Reviewed elaboration</span>' : "";
-    return `
-      <div class="pdf-item">
-        <p class="pdf-item-text">${checkbox} ${escapeHtml(p.text)} ${coreTag}${expandedTag}</p>
-        <p class="pdf-item-elab">${escapeHtml(p.elaboration || "")}</p>
-      </div>
-    `;
-  }).join("");
-
-  // Acknowledgments
-  const acks = data.acknowledgments || {};
-  const ackHazards = acks.hazardsReviewed ? "☒" : "☐";
-  const ackCtlPpe  = acks.controlsAndPpeInPlace ? "☒" : "☐";
-  const ackTask    = acks.taskBreakdownAcknowledged ? "☒" : "☐";
-
-  // Routine task breakdown
-  let routineStepsHtml = "";
-  if (template.routineSteps) {
-    routineStepsHtml = template.routineSteps.map((step, i) => `
-      <div class="pdf-step">
-        <p class="pdf-step-title">Step ${i + 1}: ${escapeHtml(step.title || "")}</p>
-        ${step.description ? `<p class="pdf-step-desc">${escapeHtml(step.description)}</p>` : ""}
-        ${step.hazards?.length ? `<p class="pdf-step-sub"><b>Hazards:</b> ${step.hazards.map(escapeHtml).join("; ")}</p>` : ""}
-        ${step.controls?.length ? `<p class="pdf-step-sub"><b>Controls:</b> ${step.controls.map(escapeHtml).join("; ")}</p>` : ""}
-      </div>
-    `).join("");
-  }
-
-  // Custom tasks
-  const customTasksHtml = (data.customTasks || []).length > 0
-    ? `<div class="pdf-section">
-         <h3 class="pdf-section-title">Non-routine tasks (added for this shift)</h3>
-         ${data.customTasks.map((t, i) => `<div class="pdf-item"><p class="pdf-item-text">${i + 1}. ${escapeHtml(t.description || "")}</p></div>`).join("")}
-       </div>`
-    : "";
-
-  // Exception
-  const exceptionHtml = data.exceptionFlagged
-    ? `<div class="pdf-section pdf-exception">
-         <h3 class="pdf-section-title">EXCEPTION FLAGGED</h3>
-         <p><b>What's different from standard:</b> ${escapeHtml(data.exceptionDetails?.text || data.exceptionText || "")}</p>
-         <p><b>Workaround in place:</b> ${escapeHtml(data.exceptionDetails?.workaround || "")}</p>
-         <p><b>Approved by:</b> ${escapeHtml(data.exceptionDetails?.approver || "")}</p>
-         <p><b>Stop work threshold:</b> ${escapeHtml(data.exceptionDetails?.stopWork || "")}</p>
-       </div>`
-    : "";
-
-  // Signatures
-  const signaturesHtml = (data.signedCrew || []).map(sig => `
-    <div class="pdf-signature">
-      <p class="pdf-sig-name"><b>${escapeHtml(sig.name || "—")}</b></p>
-      <p class="pdf-sig-meta">SWA acknowledged: ${sig.swaAcknowledged ? "Yes" : "No"} · Signed: ${sig.signedAt ? new Date(sig.signedAt).toLocaleString() : "—"}</p>
-      ${sig.signatureData ? `<img class="pdf-sig-img" src="${sig.signatureData}" alt="Signature" />` : ""}
-      ${sig.contentHash ? `<p class="pdf-sig-hash">Content hash: ${escapeHtml(sig.contentHash)}</p>` : ""}
-    </div>
-  `).join("");
-
-  // Revisions
-  const revisionsHtml = (data.revisions || []).length > 0
-    ? `<div class="pdf-section">
-         <h3 class="pdf-section-title">Revision history</h3>
-         ${data.revisions.map((r, i) => `
-           <div class="pdf-revision">
-             <p><b>Revision ${i + 1}</b> · ${r.revisedAt ? new Date(r.revisedAt.toDate ? r.revisedAt.toDate() : r.revisedAt).toLocaleString() : "—"}</p>
-             <p>Reason: ${escapeHtml(r.reason || "—")}</p>
-           </div>
-         `).join("")}
-       </div>`
-    : "";
-
-  // Admin edit flag
-  const adminEditHtml = data.editedByAdmin
-    ? `<div class="pdf-admin-note">⚠ This JSA was edited by an administrator after original submission. Admin UID: ${escapeHtml(data.editedByAdminUid || "—")}. Edited at: ${data.editedByAdminAt?.toDate ? data.editedByAdminAt.toDate().toLocaleString() : "—"}.</div>`
-    : "";
-
-  return `
-    <div class="pdf-page">
-      <div class="pdf-header">
-        <h1 class="pdf-title">JOB SAFETY ANALYSIS</h1>
-        <p class="pdf-sub">Oilroot Field · ${escapeHtml(data.jobTypeName || "—")}</p>
-        <p class="pdf-meta">JSA ID: ${escapeHtml(detailDocId || "—")} · Template: ${escapeHtml(data.templateVersion || "—")} · Generated: ${new Date().toLocaleString()}</p>
-      </div>
-
-      ${adminEditHtml}
-
-      <div class="pdf-section">
-        <h3 class="pdf-section-title">Identity</h3>
-        <p><b>Filled by:</b> ${escapeHtml(data.userDisplayName || data.userEmail || "—")}</p>
-        <p><b>Email:</b> ${escapeHtml(data.userEmail || "—")}</p>
-        <p><b>User ID:</b> ${escapeHtml(data.userId || "—")}</p>
-        <p><b>Submitted at:</b> ${escapeHtml(submittedAt)}</p>
-      </div>
-
-      <div class="pdf-section">
-        <h3 class="pdf-section-title">§ 00 Today's conditions</h3>
-        <p><b>H2S potential:</b> ${escapeHtml(h2sLabel)}</p>
-        <p><b>Work today:</b> ${escapeHtml(workSelected)}</p>
-        <p><b>Weather concerns:</b> ${escapeHtml(weatherSelected)}</p>
-        <p><b>New crew member:</b> ${escapeHtml(data.conditions?.newCrew || "—")}</p>
-        ${data.conditions?.different ? `<p><b>Anything different:</b> ${escapeHtml(data.conditions.different)}</p>` : ""}
-      </div>
-
-      <div class="pdf-section">
-        <h3 class="pdf-section-title">§ 01 Job site</h3>
-        <p><b>Location:</b> ${escapeHtml(data.location || "—")}</p>
-        <p><b>Date:</b> ${escapeHtml(dateLabel)}</p>
-        <p><b>Shift start:</b> ${escapeHtml(data.shiftStart || "—")}</p>
-        <p><b>GPS:</b> ${escapeHtml(gpsLabel)}</p>
-        <p><b>Nearest hospital:</b> ${escapeHtml(data.nearestHospital || "—")}</p>
-        <p><b>Primary muster:</b> ${escapeHtml(data.musterPrimary || data.musterPoint || "—")}</p>
-        <p><b>Secondary muster:</b> ${escapeHtml(data.musterSecondary || "—")}</p>
-        ${data.emergencyInfo?.contactNumbers ? `<p><b>Emergency contacts:</b> ${escapeHtml(data.emergencyInfo.contactNumbers)}</p>` : ""}
-        ${data.emergencyInfo?.firstAidLocation ? `<p><b>First aid kit:</b> ${escapeHtml(data.emergencyInfo.firstAidLocation)}</p>` : ""}
-        ${data.emergencyInfo?.aedLocation ? `<p><b>AED:</b> ${escapeHtml(data.emergencyInfo.aedLocation)}</p>` : ""}
-        ${data.emergencyInfo?.windsockLocation ? `<p><b>Wind sock:</b> ${escapeHtml(data.emergencyInfo.windsockLocation)}</p>` : ""}
-        ${data.emergencyInfo?.helicopterLz ? `<p><b>Helicopter LZ:</b> ${escapeHtml(data.emergencyInfo.helicopterLz)}</p>` : ""}
-      </div>
-
-      <div class="pdf-section">
-        <h3 class="pdf-section-title">§ 02 Acknowledgments</h3>
-        <p>${ackHazards} Hazards reviewed</p>
-        <p>${ackCtlPpe} Controls and PPE in place for today's work</p>
-        <p>${ackTask} Standard task breakdown acknowledged</p>
-      </div>
-
-      <div class="pdf-section">
-        <h3 class="pdf-section-title">Hazards on this job (${activeContent.hazardIdxs.length})</h3>
-        ${hazardsHtml}
-      </div>
-
-      <div class="pdf-section">
-        <h3 class="pdf-section-title">Standard controls (${activeContent.controlIdxs.length})</h3>
-        ${controlsHtml}
-      </div>
-
-      <div class="pdf-section">
-        <h3 class="pdf-section-title">Required PPE (${activeContent.ppeIdxs.length})</h3>
-        ${ppeHtml}
-      </div>
-
-      ${routineStepsHtml ? `<div class="pdf-section">
-        <h3 class="pdf-section-title">Standard task breakdown</h3>
-        ${routineStepsHtml}
-      </div>` : ""}
-
-      ${customTasksHtml}
-
-      ${data.todayDifferent ? `<div class="pdf-section">
-        <h3 class="pdf-section-title">Today's specifics</h3>
-        <p><b>What's different about this job today:</b> ${escapeHtml(data.todayDifferent)}</p>
-        ${data.stopWork ? `<p><b>Stop work conditions:</b> ${escapeHtml(data.stopWork)}</p>` : ""}
-      </div>` : ""}
-
-      ${exceptionHtml}
-
-      <div class="pdf-section">
-        <h3 class="pdf-section-title">Crew signatures (${(data.signedCrew || []).length})</h3>
-        ${signaturesHtml || "<p>No signatures recorded.</p>"}
-      </div>
-
-      ${revisionsHtml}
-
-      <div class="pdf-section pdf-audit-footer">
-        <h3 class="pdf-section-title">Audit trail</h3>
-        <p><b>JSA ID:</b> ${escapeHtml(detailDocId || "—")}</p>
-        <p><b>Template version:</b> ${escapeHtml(data.templateVersion || "—")}</p>
-        <p><b>Schema version:</b> ${data.schemaVersion || "—"}</p>
-        <p><b>Submitted at:</b> ${escapeHtml(submittedAt)}</p>
-        <p><b>Revision count:</b> ${data.revisionCount || 0}</p>
-        ${data.fastPathUsed ? `<p><b>Fast path used:</b> Yes (source date: ${data.fastPathSourceJsaDate || "—"})</p>` : ""}
-        <p><b>PDF generated at:</b> ${new Date().toLocaleString()}</p>
-        <p class="pdf-footer-note">This PDF was generated from data stored in Oilroot Field. The signature content hash on each signature in the audit trail above provides cryptographic proof that the JSA content at signing time matches what is shown in this document.</p>
-      </div>
-    </div>
-  `;
 }
 
-// Build the print stylesheet for the off-screen render
-function buildPdfStyles() {
-  return `
-    .pdf-page {
-      font-family: Georgia, 'Times New Roman', serif;
-      color: #1a1a1a;
-      background: white;
-      padding: 40px;
-      width: 800px;
-      box-sizing: border-box;
-      line-height: 1.4;
-      font-size: 11pt;
+// Move cursor down by n points. If we'd run off the page, start a new one.
+function advanceY(ctx, n) {
+  if (ctx.y + n > PDF_PAGE_H - PDF_FOOTER_RESERVE) {
+    addPage(ctx);
+  } else {
+    ctx.y += n;
+  }
+}
+
+// Force a page break, drop in a header on the new page
+function addPage(ctx) {
+  // Footer on the page we're leaving
+  drawFooter(ctx);
+  ctx.pdf.addPage();
+  ctx.pageNum += 1;
+  ctx.y = PDF_MARGIN_Y;
+  drawContinuationHeader(ctx);
+}
+
+// Draw the header on continuation pages (smaller, single line)
+function drawContinuationHeader(ctx) {
+  const pdf = ctx.pdf;
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  pdf.setTextColor(120);
+  const label = `JSA · ${ctx.locationLabel} · ${ctx.dateLabel} · continued`;
+  pdf.text(label, PDF_MARGIN_X, ctx.y);
+  pdf.setDrawColor(200);
+  pdf.setLineWidth(0.5);
+  pdf.line(PDF_MARGIN_X, ctx.y + 4, PDF_PAGE_W - PDF_MARGIN_X, ctx.y + 4);
+  ctx.y += 14;
+  pdf.setTextColor(20);
+}
+
+// Draw footer on every page
+function drawFooter(ctx) {
+  const pdf = ctx.pdf;
+  const y = PDF_PAGE_H - 18;
+  pdf.setDrawColor(220);
+  pdf.setLineWidth(0.5);
+  pdf.line(PDF_MARGIN_X, y - 8, PDF_PAGE_W - PDF_MARGIN_X, y - 8);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(7);
+  pdf.setTextColor(120);
+  pdf.text(`Oilroot Field · JSA ${ctx.docId}`, PDF_MARGIN_X, y);
+  pdf.text(`Page ${ctx.pageNum}`, PDF_PAGE_W - PDF_MARGIN_X, y, { align: "right" });
+  pdf.setTextColor(20);
+}
+
+// Section title (the larger headers like "Job site", "Hazards")
+function drawSectionTitle(ctx, title) {
+  // If we don't have room for the title + at least 2 lines below, page break
+  if (ctx.y + 32 > PDF_PAGE_H - PDF_FOOTER_RESERVE) {
+    addPage(ctx);
+  }
+  const pdf = ctx.pdf;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(20);
+  // Slight uppercase styling
+  pdf.text(title.toUpperCase(), PDF_MARGIN_X, ctx.y);
+  pdf.setDrawColor(20);
+  pdf.setLineWidth(1);
+  pdf.line(PDF_MARGIN_X, ctx.y + 3, PDF_PAGE_W - PDF_MARGIN_X, ctx.y + 3);
+  advanceY(ctx, 14);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+}
+
+// Subsection title (used inside major sections)
+function drawSubTitle(ctx, title) {
+  const pdf = ctx.pdf;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  pdf.text(title, PDF_MARGIN_X, ctx.y);
+  advanceY(ctx, 12);
+  pdf.setFont("helvetica", "normal");
+}
+
+// Key/value pair on a single line (e.g., "Location: Pad 14")
+function drawKeyValue(ctx, key, value) {
+  const pdf = ctx.pdf;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  pdf.text(`${key}:`, PDF_MARGIN_X, ctx.y);
+  const keyWidth = pdf.getTextWidth(`${key}: `);
+  pdf.setFont("helvetica", "normal");
+  // Wrap value if too long
+  const valueText = value == null || value === "" ? "—" : String(value);
+  const maxValueW = PDF_CONTENT_W - keyWidth - 4;
+  const wrapped = pdf.splitTextToSize(valueText, maxValueW);
+  pdf.text(wrapped, PDF_MARGIN_X + keyWidth + 4, ctx.y);
+  advanceY(ctx, PDF_LINE_HEIGHT * wrapped.length);
+}
+
+// Plain paragraph text with auto-wrap
+function drawText(ctx, text, opts = {}) {
+  const pdf = ctx.pdf;
+  pdf.setFont("helvetica", opts.bold ? "bold" : "normal");
+  pdf.setFontSize(opts.size || 9);
+  if (opts.color) pdf.setTextColor(opts.color);
+  const lines = pdf.splitTextToSize(String(text || ""), PDF_CONTENT_W - (opts.indent || 0));
+  lines.forEach(line => {
+    if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+    pdf.text(line, PDF_MARGIN_X + (opts.indent || 0), ctx.y);
+    ctx.y += PDF_LINE_HEIGHT;
+  });
+  if (opts.color) pdf.setTextColor(20);
+}
+
+// Compact hazard/control/PPE row with checkbox + label + elaboration
+function drawChecklistItem(ctx, opts) {
+  const pdf = ctx.pdf;
+  const { checked, label, type, elaboration, reviewed } = opts;
+
+  // Need at least 24pt for title row + first elab line
+  if (ctx.y + 24 > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+
+  const boxSize = 8;
+  const boxX = PDF_MARGIN_X;
+  const boxY = ctx.y - 7;
+
+  // Draw checkbox
+  pdf.setDrawColor(20);
+  pdf.setLineWidth(0.7);
+  pdf.rect(boxX, boxY, boxSize, boxSize);
+  if (checked) {
+    // Draw a thick X
+    pdf.setLineWidth(1.2);
+    pdf.line(boxX + 1, boxY + 1, boxX + boxSize - 1, boxY + boxSize - 1);
+    pdf.line(boxX + boxSize - 1, boxY + 1, boxX + 1, boxY + boxSize - 1);
+    pdf.setLineWidth(0.7);
+  }
+
+  const textX = boxX + boxSize + 6;
+  const textW = PDF_CONTENT_W - boxSize - 6;
+
+  // Label (bold)
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  pdf.setTextColor(20);
+  const labelLines = pdf.splitTextToSize(label, textW - 70);  // reserve room for tag
+  pdf.text(labelLines[0], textX, ctx.y);
+
+  // Type tag on the right of first label line
+  if (type) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(100);
+    const tagText = type + (reviewed ? "  • READ" : "");
+    pdf.text(tagText, PDF_PAGE_W - PDF_MARGIN_X, ctx.y, { align: "right" });
+  }
+
+  // Remaining label lines if it wrapped
+  if (labelLines.length > 1) {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(20);
+    for (let i = 1; i < labelLines.length; i++) {
+      ctx.y += PDF_LINE_HEIGHT;
+      if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+      pdf.text(labelLines[i], textX, ctx.y);
     }
-    .pdf-header { border-bottom: 2px solid #1a1a1a; margin-bottom: 20px; padding-bottom: 12px; }
-    .pdf-title { font-size: 22pt; margin: 0 0 4px 0; letter-spacing: 0.05em; }
-    .pdf-sub { font-size: 13pt; margin: 0 0 6px 0; color: #444; }
-    .pdf-meta { font-size: 9pt; color: #666; font-family: 'Courier New', monospace; margin: 0; }
-    .pdf-section { margin: 18px 0; page-break-inside: avoid; }
-    .pdf-section-title { font-size: 13pt; margin: 0 0 8px 0; padding-bottom: 4px; border-bottom: 1px solid #888; }
-    .pdf-section p { margin: 4px 0; }
-    .pdf-item { margin: 8px 0; padding: 6px 0; border-bottom: 1px dotted #ccc; }
-    .pdf-item-text { margin: 0; font-weight: 600; font-size: 11pt; }
-    .pdf-item-elab { margin: 4px 0 0 0; font-size: 9.5pt; color: #555; font-style: italic; }
-    .pdf-tag { display: inline-block; font-size: 7.5pt; padding: 1px 4px; background: #eee; border-radius: 2px; font-weight: 600; letter-spacing: 0.05em; margin-left: 4px; font-family: 'Courier New', monospace; }
-    .pdf-eng-tag { display: inline-block; font-size: 7.5pt; padding: 1px 4px; background: #fff3cd; color: #856404; border-radius: 2px; margin-left: 4px; font-family: 'Courier New', monospace; }
-    .pdf-step { margin: 10px 0; padding: 8px; background: #f7f7f7; border-left: 3px solid #888; }
-    .pdf-step-title { margin: 0 0 4px 0; font-weight: 700; }
-    .pdf-step-desc { margin: 0 0 4px 0; font-size: 10pt; }
-    .pdf-step-sub { margin: 2px 0; font-size: 9.5pt; color: #444; }
-    .pdf-exception { background: #fff5f5; border-left: 4px solid #d04444; padding: 12px; }
-    .pdf-exception .pdf-section-title { color: #d04444; border-bottom-color: #d04444; }
-    .pdf-signature { margin: 12px 0; padding: 10px; background: #fafafa; border-left: 3px solid #444; page-break-inside: avoid; }
-    .pdf-sig-name { margin: 0; font-size: 12pt; }
-    .pdf-sig-meta { margin: 4px 0; font-size: 9pt; color: #555; }
-    .pdf-sig-img { max-width: 280px; max-height: 80px; background: white; border: 1px solid #ddd; margin: 4px 0; }
-    .pdf-sig-hash { margin: 4px 0 0 0; font-size: 7.5pt; font-family: 'Courier New', monospace; color: #666; word-break: break-all; }
-    .pdf-revision { margin: 6px 0; padding: 6px; background: #f7f7f7; }
-    .pdf-revision p { margin: 2px 0; font-size: 10pt; }
-    .pdf-admin-note { margin: 12px 0; padding: 10px; background: #fff3cd; border-left: 4px solid #d97706; color: #856404; font-weight: 600; }
-    .pdf-audit-footer { background: #f4f4f4; padding: 14px; border: 1px solid #ccc; }
-    .pdf-footer-note { margin-top: 10px; font-size: 8.5pt; font-style: italic; color: #555; }
-  `;
+  }
+  ctx.y += PDF_LINE_HEIGHT;
+
+  // Elaboration (italic, indented)
+  if (elaboration) {
+    pdf.setFont("helvetica", "italic");
+    pdf.setFontSize(8);
+    pdf.setTextColor(80);
+    const elabLines = pdf.splitTextToSize(elaboration, textW);
+    elabLines.forEach(line => {
+      if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+      pdf.text(line, textX, ctx.y);
+      ctx.y += PDF_LINE_HEIGHT - 1;
+    });
+    pdf.setTextColor(20);
+  }
+  ctx.y += 4;  // small breathing room between items
+}
+
+// Boxed routine task step
+function drawTaskStep(ctx, num, step) {
+  const pdf = ctx.pdf;
+  const startY = ctx.y;
+
+  // Estimate height needed
+  const titleHeight = PDF_LINE_HEIGHT + 4;
+  let estimateH = titleHeight;
+  if (step.description) estimateH += 20;
+  if (step.hazards?.length) estimateH += 16;
+  if (step.controls?.length) estimateH += 16;
+
+  if (ctx.y + estimateH > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+
+  const boxStartY = ctx.y - 4;
+
+  // Step number circle and title
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(9);
+  pdf.setTextColor(20);
+  pdf.text(`STEP ${num}: ${(step.title || "").toUpperCase()}`, PDF_MARGIN_X + 8, ctx.y);
+  ctx.y += PDF_LINE_HEIGHT;
+
+  // Description
+  if (step.description) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    const lines = pdf.splitTextToSize(step.description, PDF_CONTENT_W - 16);
+    lines.forEach(l => {
+      if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+      pdf.text(l, PDF_MARGIN_X + 8, ctx.y);
+      ctx.y += PDF_LINE_HEIGHT - 1;
+    });
+    ctx.y += 2;
+  }
+
+  // Hazards inline
+  if (step.hazards?.length) {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.text("Hazards:", PDF_MARGIN_X + 8, ctx.y);
+    const hazW = pdf.getTextWidth("Hazards: ");
+    pdf.setFont("helvetica", "normal");
+    const hazText = step.hazards.join("; ");
+    const hazLines = pdf.splitTextToSize(hazText, PDF_CONTENT_W - 16 - hazW);
+    hazLines.forEach((l, i) => {
+      if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+      pdf.text(l, PDF_MARGIN_X + 8 + (i === 0 ? hazW : 0), ctx.y);
+      ctx.y += PDF_LINE_HEIGHT - 1;
+    });
+    ctx.y += 2;
+  }
+
+  // Controls inline
+  if (step.controls?.length) {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.text("Controls:", PDF_MARGIN_X + 8, ctx.y);
+    const ctlW = pdf.getTextWidth("Controls: ");
+    pdf.setFont("helvetica", "normal");
+    const ctlText = step.controls.join("; ");
+    const ctlLines = pdf.splitTextToSize(ctlText, PDF_CONTENT_W - 16 - ctlW);
+    ctlLines.forEach((l, i) => {
+      if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+      pdf.text(l, PDF_MARGIN_X + 8 + (i === 0 ? ctlW : 0), ctx.y);
+      ctx.y += PDF_LINE_HEIGHT - 1;
+    });
+    ctx.y += 2;
+  }
+
+  // Draw the box around the step
+  const boxEndY = ctx.y + 2;
+  pdf.setDrawColor(180);
+  pdf.setLineWidth(0.5);
+  pdf.rect(PDF_MARGIN_X, boxStartY, PDF_CONTENT_W, boxEndY - boxStartY);
+  // Left accent bar
+  pdf.setFillColor(70, 70, 70);
+  pdf.rect(PDF_MARGIN_X, boxStartY, 2.5, boxEndY - boxStartY, "F");
+  ctx.y = boxEndY + 6;
+}
+
+// Draw signature block
+function drawSignature(ctx, sig) {
+  const pdf = ctx.pdf;
+
+  // Need at least 70pt for signature
+  if (ctx.y + 70 > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+
+  const blockStartY = ctx.y - 2;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(20);
+  pdf.text(sig.name || "—", PDF_MARGIN_X + 8, ctx.y + 4);
+  ctx.y += 14;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  pdf.setTextColor(80);
+  const swaLabel = sig.swaAcknowledged ? "Yes" : "No";
+  const signedAt = sig.signedAt ? new Date(sig.signedAt).toLocaleString() : "—";
+  pdf.text(`SWA acknowledged: ${swaLabel}   ·   Signed: ${signedAt}`, PDF_MARGIN_X + 8, ctx.y);
+  ctx.y += 10;
+
+  // Signature image
+  if (sig.signatureData && sig.signatureData.startsWith("data:image")) {
+    try {
+      const imgW = 180;
+      const imgH = 50;
+      if (ctx.y + imgH > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+      pdf.addImage(sig.signatureData, "PNG", PDF_MARGIN_X + 8, ctx.y, imgW, imgH);
+      // Light frame around the signature
+      pdf.setDrawColor(220);
+      pdf.setLineWidth(0.3);
+      pdf.rect(PDF_MARGIN_X + 8, ctx.y, imgW, imgH);
+      ctx.y += imgH + 4;
+    } catch (err) {
+      console.warn("Signature image render failed:", err);
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(8);
+      pdf.text("[Signature image could not be rendered]", PDF_MARGIN_X + 8, ctx.y);
+      ctx.y += 10;
+    }
+  }
+
+  // Content hash
+  if (sig.contentHash) {
+    pdf.setFont("courier", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(120);
+    pdf.text(`Content hash: ${sig.contentHash}`, PDF_MARGIN_X + 8, ctx.y);
+    ctx.y += 9;
+  }
+
+  // Box the whole signature
+  pdf.setDrawColor(200);
+  pdf.setLineWidth(0.5);
+  pdf.rect(PDF_MARGIN_X, blockStartY, PDF_CONTENT_W, ctx.y - blockStartY);
+  pdf.setFillColor(70, 70, 70);
+  pdf.rect(PDF_MARGIN_X, blockStartY, 2.5, ctx.y - blockStartY, "F");
+  pdf.setTextColor(20);
+  ctx.y += 6;
 }
 
 // Generate filename: JSA_[location-slug]_[YYYY-MM-DD].pdf
@@ -4029,7 +4104,7 @@ function buildPdfFilename(data) {
   return `JSA_${locationSlug}_${dateStr}.pdf`;
 }
 
-// Main export entry point
+// Main render — builds the PDF page by page using native jsPDF text
 async function exportJsaPdf(data) {
   if (!data) {
     showToast("No JSA loaded to export", "error");
@@ -4037,64 +4112,268 @@ async function exportJsaPdf(data) {
   }
   exportPdfBtn.disabled = true;
   const originalLabel = exportPdfBtn.innerHTML;
-  exportPdfBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.3"/></svg> Loading...`;
+  exportPdfBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.3"/></svg> Generating...`;
 
   try {
     await ensurePdfLibsLoaded();
-
-    // Build the HTML and stylesheet, render into an offscreen container
-    const container = document.createElement("div");
-    container.style.position = "absolute";
-    container.style.left = "-99999px";
-    container.style.top = "0";
-    container.style.background = "white";
-    const styleTag = document.createElement("style");
-    styleTag.textContent = buildPdfStyles();
-    container.appendChild(styleTag);
-    container.innerHTML += buildPdfHtml(data);
-    document.body.appendChild(container);
-
-    exportPdfBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.3"/></svg> Rendering...`;
-
-    // html2canvas the rendered HTML, scale 2 for retina sharpness
-    const canvas = await window.html2canvas(container.querySelector(".pdf-page"), {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      logging: false,
-      useCORS: true
-    });
-
-    // jsPDF build: letter-sized, portrait, paginated
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "pt",
-      format: "letter"  // 612 x 792 pt
+      format: "letter"
     });
+    pdf.setFont("helvetica", "normal");
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth - 40;  // 20pt margin each side
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const ctx = createPdfCtx(pdf, data);
 
-    let heightLeft = imgHeight;
-    let position = 20;  // top margin
+    // ===== Top header (page 1 only) =====
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text("JOB SAFETY ANALYSIS", PDF_MARGIN_X, ctx.y + 4);
+    ctx.y += 22;
 
-    pdf.addImage(canvas.toDataURL("image/png"), "PNG", 20, position, imgWidth, imgHeight);
-    heightLeft -= (pageHeight - 40);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.setTextColor(80);
+    pdf.text(`Oilroot Field · ${data.jobTypeName || "—"}`, PDF_MARGIN_X, ctx.y);
+    ctx.y += 12;
 
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight + 20;
-      pdf.addPage();
-      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 20, position, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - 40);
+    pdf.setFont("courier", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(120);
+    pdf.text(`JSA ID: ${ctx.docId}  ·  Template: ${data.templateVersion || "—"}  ·  Generated: ${new Date().toLocaleString()}`, PDF_MARGIN_X, ctx.y);
+    ctx.y += 4;
+    pdf.setDrawColor(20);
+    pdf.setLineWidth(1.5);
+    pdf.line(PDF_MARGIN_X, ctx.y, PDF_PAGE_W - PDF_MARGIN_X, ctx.y);
+    ctx.y += 14;
+    pdf.setTextColor(20);
+
+    // ===== Admin edit banner =====
+    if (data.editedByAdmin) {
+      pdf.setFillColor(255, 243, 205);
+      pdf.rect(PDF_MARGIN_X, ctx.y - 8, PDF_CONTENT_W, 24, "F");
+      pdf.setDrawColor(217, 119, 6);
+      pdf.setLineWidth(2);
+      pdf.line(PDF_MARGIN_X, ctx.y - 8, PDF_MARGIN_X, ctx.y + 16);
+      pdf.setLineWidth(0.5);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(9);
+      pdf.setTextColor(133, 100, 4);
+      pdf.text("EDITED BY ADMIN", PDF_MARGIN_X + 8, ctx.y);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.text(`Admin UID: ${data.editedByAdminUid || "—"} · ${data.editedByAdminAt?.toDate ? data.editedByAdminAt.toDate().toLocaleString() : "—"}`, PDF_MARGIN_X + 8, ctx.y + 10);
+      ctx.y += 22;
+      pdf.setTextColor(20);
     }
 
+    // ===== Identity =====
+    drawSectionTitle(ctx, "Identity");
+    drawKeyValue(ctx, "Filled by", data.userDisplayName || data.userEmail || "—");
+    drawKeyValue(ctx, "Email", data.userEmail || "—");
+    drawKeyValue(ctx, "User ID", data.userId || "—");
+    drawKeyValue(ctx, "Submitted at", data.submittedAt?.toDate ? data.submittedAt.toDate().toLocaleString() : "—");
+    advanceY(ctx, 4);
+
+    // ===== Today's conditions =====
+    drawSectionTitle(ctx, "§ 00 Today's conditions");
+    const h2sLabels = {
+      "none":      "Not present",
+      "trace":     "Trace, monitor only (below 10 ppm)",
+      "caution":   "Caution, alarm range (10 to 50 ppm)",
+      "danger":    "Danger, physical effects (50 to 100 ppm)",
+      "severe":    "Severe, evacuate (above 100 ppm)",
+      "cond1":     "Condition I (below 10 ppm) — legacy",
+      "cond2":     "Condition II (10 to 30 ppm) — legacy",
+      "cond3":     "Condition III (above 30 ppm) — legacy"
+    };
+    const workLabels = {
+      "routine":           "Routine monitoring only",
+      "maintenance":       "Equipment maintenance / iron change-out",
+      "heater_treater":    "Heater treater lighting",
+      "elevation_sample":  "Sample collection at elevation",
+      "other":             "Other"
+    };
+    drawKeyValue(ctx, "H2S potential", h2sLabels[data.conditions?.h2s] || "—");
+    drawKeyValue(ctx, "Work today", (data.conditions?.work || []).map(w => workLabels[w] || w).join(", ") || "—");
+    drawKeyValue(ctx, "Weather concerns", (data.conditions?.weather || []).join(", ") || "—");
+    drawKeyValue(ctx, "New crew member", data.conditions?.newCrew || "—");
+    if (data.conditions?.different) drawKeyValue(ctx, "Anything different", data.conditions.different);
+    advanceY(ctx, 4);
+
+    // ===== Job site =====
+    drawSectionTitle(ctx, "§ 01 Job site");
+    const dateLabel = data.date
+      ? new Date(data.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+      : "—";
+    const gpsLabel = data.gps
+      ? `${data.gps.lat.toFixed(5)}°, ${data.gps.lng.toFixed(5)}° (accuracy: ~${Math.round(data.gps.accuracy || 0)}m, source: ${data.gps.source || "unknown"})`
+      : "Not captured";
+    drawKeyValue(ctx, "Location", data.location || "—");
+    drawKeyValue(ctx, "Date", dateLabel);
+    drawKeyValue(ctx, "Shift start", data.shiftStart || "—");
+    drawKeyValue(ctx, "GPS", gpsLabel);
+    drawKeyValue(ctx, "Nearest hospital", data.nearestHospital || "—");
+    drawKeyValue(ctx, "Primary muster", data.musterPrimary || data.musterPoint || "—");
+    drawKeyValue(ctx, "Secondary muster", data.musterSecondary || "—");
+    if (data.emergencyInfo?.contactNumbers) drawKeyValue(ctx, "Emergency contacts", data.emergencyInfo.contactNumbers);
+    if (data.emergencyInfo?.firstAidLocation) drawKeyValue(ctx, "First aid kit", data.emergencyInfo.firstAidLocation);
+    if (data.emergencyInfo?.aedLocation) drawKeyValue(ctx, "AED", data.emergencyInfo.aedLocation);
+    if (data.emergencyInfo?.windsockLocation) drawKeyValue(ctx, "Wind sock", data.emergencyInfo.windsockLocation);
+    if (data.emergencyInfo?.helicopterLz) drawKeyValue(ctx, "Helicopter LZ", data.emergencyInfo.helicopterLz);
+    advanceY(ctx, 4);
+
+    // ===== Acknowledgments =====
+    drawSectionTitle(ctx, "§ 02 Acknowledgments");
+    const acks = data.acknowledgments || {};
+    drawChecklistItem(ctx, { checked: acks.hazardsReviewed, label: "Hazards reviewed", type: "ACKNOWLEDGMENT" });
+    drawChecklistItem(ctx, { checked: acks.controlsAndPpeInPlace, label: "Controls and PPE in place for today's work", type: "ACKNOWLEDGMENT" });
+    drawChecklistItem(ctx, { checked: acks.taskBreakdownAcknowledged, label: "Standard task breakdown acknowledged", type: "ACKNOWLEDGMENT" });
+    advanceY(ctx, 4);
+
+    // ===== Hazards =====
+    const activeContent = data.activeContent || { hazardIdxs: [], controlIdxs: [], ppeIdxs: [] };
+    const template = data.templateSnapshot || FLOWBACK_TEMPLATE;
+
+    drawSectionTitle(ctx, `Hazards on this job (${activeContent.hazardIdxs.length})`);
+    activeContent.hazardIdxs.forEach(idx => {
+      const h = template.hazards[idx];
+      if (!h) return;
+      drawChecklistItem(ctx, { checked: true, label: h.text, type: "HAZARD", elaboration: h.elaboration });
+    });
+    advanceY(ctx, 4);
+
+    // ===== Controls =====
+    drawSectionTitle(ctx, `Standard controls (${activeContent.controlIdxs.length})`);
+    activeContent.controlIdxs.forEach(idx => {
+      const c = template.controls[idx];
+      if (!c) return;
+      const state = data.controlsState?.[idx] || { checked: false };
+      const tag = c.type === "eng" ? "ENGINEERING" : c.type === "admin" ? "ADMIN" : "CONTROL";
+      drawChecklistItem(ctx, {
+        checked: state.checked,
+        label: c.text,
+        type: tag,
+        elaboration: c.elaboration,
+        reviewed: state.expanded
+      });
+    });
+    advanceY(ctx, 4);
+
+    // ===== PPE =====
+    drawSectionTitle(ctx, `Required PPE (${activeContent.ppeIdxs.length})`);
+    activeContent.ppeIdxs.forEach(idx => {
+      const p = template.ppe[idx];
+      if (!p) return;
+      const state = data.ppeState?.[idx] || { checked: false };
+      const tag = p.core ? "PPE · CORE" : "PPE";
+      drawChecklistItem(ctx, {
+        checked: state.checked,
+        label: p.text,
+        type: tag,
+        elaboration: p.elaboration,
+        reviewed: state.expanded
+      });
+    });
+    advanceY(ctx, 4);
+
+    // ===== Routine task breakdown =====
+    if (template.routineSteps?.length) {
+      drawSectionTitle(ctx, "Standard task breakdown");
+      template.routineSteps.forEach((step, i) => drawTaskStep(ctx, i + 1, step));
+      advanceY(ctx, 4);
+    }
+
+    // ===== Custom tasks =====
+    if ((data.customTasks || []).length > 0) {
+      drawSectionTitle(ctx, "Non-routine tasks (added for this shift)");
+      data.customTasks.forEach((t, i) => {
+        drawText(ctx, `${i + 1}. ${t.description || ""}`, { bold: true });
+        if (t.hazards) drawText(ctx, `Hazards: ${t.hazards}`, { indent: 12 });
+        if (t.controls) drawText(ctx, `Controls: ${t.controls}`, { indent: 12 });
+        advanceY(ctx, 4);
+      });
+    }
+
+    // ===== Today's specifics =====
+    if (data.todayDifferent || data.stopWork) {
+      drawSectionTitle(ctx, "Today's specifics");
+      if (data.todayDifferent) {
+        drawSubTitle(ctx, "What's different about this job today");
+        drawText(ctx, data.todayDifferent);
+        advanceY(ctx, 4);
+      }
+      if (data.stopWork) {
+        drawSubTitle(ctx, "Stop work conditions for today");
+        drawText(ctx, data.stopWork);
+        advanceY(ctx, 4);
+      }
+    }
+
+    // ===== Exception flag =====
+    if (data.exceptionFlagged) {
+      drawSectionTitle(ctx, "EXCEPTION FLAGGED");
+      drawKeyValue(ctx, "What's different from standard", data.exceptionDetails?.text || data.exceptionText || "—");
+      drawKeyValue(ctx, "Workaround in place", data.exceptionDetails?.workaround || "—");
+      drawKeyValue(ctx, "Approved by", data.exceptionDetails?.approver || "—");
+      drawKeyValue(ctx, "Stop work threshold", data.exceptionDetails?.stopWork || "—");
+      advanceY(ctx, 4);
+    }
+
+    // ===== Signatures =====
+    drawSectionTitle(ctx, `Crew signatures (${(data.signedCrew || []).length})`);
+    if ((data.signedCrew || []).length === 0) {
+      drawText(ctx, "No signatures recorded.", { color: 120 });
+    } else {
+      data.signedCrew.forEach(sig => drawSignature(ctx, sig));
+    }
+    advanceY(ctx, 4);
+
+    // ===== Revisions =====
+    if ((data.revisions || []).length > 0) {
+      drawSectionTitle(ctx, "Revision history");
+      data.revisions.forEach((r, i) => {
+        const ts = r.revisedAt
+          ? (r.revisedAt.toDate ? r.revisedAt.toDate().toLocaleString() : new Date(r.revisedAt).toLocaleString())
+          : "—";
+        drawText(ctx, `Revision ${i + 1}  ·  ${ts}`, { bold: true });
+        drawText(ctx, `Reason: ${r.reason || "—"}`, { indent: 12 });
+        advanceY(ctx, 4);
+      });
+    }
+
+    // ===== Audit trail =====
+    drawSectionTitle(ctx, "Audit trail");
+    drawKeyValue(ctx, "JSA ID", ctx.docId);
+    drawKeyValue(ctx, "Template version", data.templateVersion || "—");
+    drawKeyValue(ctx, "Schema version", data.schemaVersion || "—");
+    drawKeyValue(ctx, "Submitted at", data.submittedAt?.toDate ? data.submittedAt.toDate().toLocaleString() : "—");
+    drawKeyValue(ctx, "Revision count", data.revisionCount || 0);
+    if (data.fastPathUsed) {
+      drawKeyValue(ctx, "Fast path used", `Yes (source: ${data.fastPathSourceJsaDate || "—"})`);
+    }
+    drawKeyValue(ctx, "PDF generated at", new Date().toLocaleString());
+    advanceY(ctx, 4);
+    pdf.setFont("helvetica", "italic");
+    pdf.setFontSize(8);
+    pdf.setTextColor(120);
+    const note = "This PDF was generated from data stored in Oilroot Field. The signature content hash on each signature in the audit trail above provides cryptographic proof that the JSA content at signing time matches what is shown in this document.";
+    const noteLines = pdf.splitTextToSize(note, PDF_CONTENT_W);
+    noteLines.forEach(line => {
+      if (ctx.y > PDF_PAGE_H - PDF_FOOTER_RESERVE) addPage(ctx);
+      pdf.text(line, PDF_MARGIN_X, ctx.y);
+      ctx.y += PDF_LINE_HEIGHT - 1;
+    });
+    pdf.setTextColor(20);
+
+    // Footer on last page
+    drawFooter(ctx);
+
+    // Save
     const filename = buildPdfFilename(data);
     pdf.save(filename);
 
-    // Cleanup
-    document.body.removeChild(container);
     showToast(`Exported as ${filename}`, "success");
   } catch (err) {
     console.error("PDF export error:", err);
@@ -4111,6 +4390,7 @@ if (exportPdfBtn) {
     exportJsaPdf(detailCachedData);
   });
 }
+
 
 // ============== TOAST ==============
 let toastTimer = null;
