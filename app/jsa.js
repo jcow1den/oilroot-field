@@ -2284,21 +2284,36 @@ async function lookupNearestHospital(lat, lng) {
 }
 
 async function queryOverpassForHospital(lat, lng, radiusMeters) {
-  // We want full-service hospitals with emergency departments, not specialty
-  // clinics, dental offices, or anything else that someone tagged amenity=hospital.
-  // Require either emergency=yes (best signal) OR healthcare=hospital (rigorous tag).
-  // We deliberately do NOT fall back to generic amenity=hospital, since that tag
-  // is unreliable in OSM and includes everything from eye clinics to (yes, really)
-  // miscategorized car dealerships.
+  // Goal: find a full-service hospital with an emergency department that can
+  // handle trauma. The OSM tagging landscape is messy:
+  //   - `amenity=hospital` alone is unreliable (eye clinics, dentists,
+  //     even miscategorized non-medical buildings)
+  //   - `healthcare=hospital` filters out clinics but still includes
+  //     psychiatric, rehabilitation, and hospice facilities
+  //   - `emergency=yes` is the strongest signal for trauma response
+  //
+  // Strategy: three-tier search.
+  //   Tier 1 (strict): emergency=yes AND healthcare=hospital. Best match.
+  //   Tier 2 (medium): emergency=yes only. Common in rural areas with
+  //     incomplete tagging where the ED is documented but the broader
+  //     facility classification isn't.
+  //   Tier 3 (loose): healthcare=hospital only. Last resort when no
+  //     emergency tag exists at all.
+  //
+  // All tiers exclude psychiatric, rehab, hospice, and behavioral health
+  // facilities by both tag and name filter.
+
   const overpassQuery = `
-    [out:json][timeout:8];
+    [out:json][timeout:10];
     (
+      node["amenity"="hospital"]["emergency"="yes"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
+      way["amenity"="hospital"]["emergency"="yes"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       node["amenity"="hospital"]["emergency"="yes"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"]["emergency"="yes"](around:${radiusMeters},${lat},${lng});
       node["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
       way["amenity"="hospital"]["healthcare"="hospital"](around:${radiusMeters},${lat},${lng});
     );
-    out center 25;
+    out center 50;
   `;
   const url = "https://overpass-api.de/api/interpreter";
   const resp = await fetch(url, {
@@ -2309,22 +2324,54 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
   const data = await resp.json();
   if (!data.elements || data.elements.length === 0) return null;
 
-  // Even within tagged hospitals, exclude obvious specialty facilities
+  // Even within tagged hospitals, exclude obvious specialty/non-emergency
+  // facilities by name keywords and by explicit OSM tag filters.
   const SPECIALTY_KEYWORDS = [
+    // Mental health and behavioral
+    "psychiatric", "psychiatry", "behavioral", "behavioural", "mental health",
+    "mental hospital", "psych ", "psych hospital",
+    // Rehabilitation and long-term care
+    "rehabilitation", "rehab center", "rehab hospital", "skilled nursing",
+    "long-term care", "long term care", "nursing home",
+    "hospice", "palliative",
+    // Specialty clinics that get miscategorized as hospitals
     "eye", "vision", "ophthalm", "dental", "orthodont",
-    "dermatolog", "fertility", "psychiatric", "behavioral",
-    "rehabilitation", "rehab center", "surgery center",
-    "outpatient", "urgent care", "veterinary", "animal",
-    "cancer center", "cardiac care only", "physical therapy",
+    "dermatolog", "fertility", "ivf",
+    "surgery center", "surgical center", "outpatient surgery",
+    "urgent care", "minute clinic", "walk-in",
+    // Veterinary and non-medical
+    "veterinary", "animal", "pet clinic", "vet hospital",
+    // Single-specialty
+    "cancer center", "oncology center only", "cardiac care only",
+    "physical therapy", "chiropractic", "wellness center",
+    "detox", "addiction", "recovery center", "treatment center",
+    // Non-medical contamination of OSM tags
     "chevrolet", "ford", "toyota", "dealership", "auto"
   ];
 
   function looksLikeSpecialty(name, tags) {
     const lower = (name || "").toLowerCase();
     if (SPECIALTY_KEYWORDS.some(kw => lower.includes(kw))) return true;
+    // OSM speciality tags that disqualify a facility for trauma response
+    const speciality = tags?.["healthcare:speciality"] || tags?.["healthcare:specialty"] || "";
+    const specLower = speciality.toLowerCase();
+    if (specLower.includes("psychiatry") || specLower.includes("psychiatric")) return true;
+    if (specLower.includes("rehabilitation")) return true;
+    if (specLower.includes("hospice") || specLower.includes("palliative")) return true;
+    if (specLower.includes("addiction")) return true;
+    if (specLower.includes("dermatology")) return true;
+    if (specLower.includes("ophthalmology")) return true;
+    if (specLower.includes("dental")) return true;
+    if (specLower.includes("vision")) return true;
+    if (specLower.includes("oncology") && !specLower.includes("general")) return true;
+    // Healthcare type filters (non-hospital tagged buildings)
     if (tags?.healthcare === "clinic") return true;
     if (tags?.healthcare === "doctor") return true;
     if (tags?.healthcare === "dentist") return true;
+    if (tags?.healthcare === "psychotherapist") return true;
+    if (tags?.healthcare === "rehabilitation") return true;
+    if (tags?.healthcare === "alternative") return true;
+    if (tags?.amenity === "clinic") return true;
     return false;
   }
 
@@ -2353,7 +2400,37 @@ async function queryOverpassForHospital(lat, lng, radiusMeters) {
 
   if (!candidates.length) return null;
 
-  candidates.sort((a, b) => a.distanceMi - b.distanceMi);
+  // Score each candidate by how strong its trauma-hospital signal is.
+  // Lower score = stronger match. Tie-break by distance.
+  candidates.forEach(c => {
+    let score = 100;
+    const hasEmergency = c.tags?.emergency === "yes";
+    const isHealthcareHospital = c.tags?.healthcare === "hospital";
+    if (hasEmergency && isHealthcareHospital) {
+      score = 0;  // Best match: explicit ER + hospital classification
+    } else if (hasEmergency) {
+      score = 10; // Has ER tag but classification unclear
+    } else if (isHealthcareHospital) {
+      score = 20; // Hospital classification but ER not explicitly tagged
+    }
+    // Boost (lower) score if name contains strong positive indicators
+    const lower = (c.name || "").toLowerCase();
+    if (lower.includes("regional medical") || lower.includes("medical center")) score -= 2;
+    if (lower.includes("trauma center")) score -= 5;
+    if (lower.includes("level i") || lower.includes("level 1")) score -= 3;
+    // Penalize names that suggest single-specialty or non-trauma even if tags passed
+    if (lower.includes("children's") || lower.includes("childrens") || lower.includes("pediatric")) {
+      // Children's hospitals can handle some trauma but may not be the first choice
+      // for an adult oilfield worker; mark as lower priority
+      score += 5;
+    }
+    c.score = score;
+  });
+
+  candidates.sort((a, b) => {
+    if (a.score !== b.score) return a.score - b.score;
+    return a.distanceMi - b.distanceMi;
+  });
   const closest = candidates[0];
 
   const erSuffix = closest.tags?.emergency === "yes" ? " · ER confirmed" : "";
